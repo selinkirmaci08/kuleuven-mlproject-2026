@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 # matrix games
 games = {
@@ -30,7 +31,7 @@ games = {
     ),
 }
 # e greedy q-learning (off policy TD)
-def qlearning(reward_matrices, episodes=100, learning_rate=0.8, epsilon=0.1):
+def qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, epsilon=0.1):
     print("perfoming qlearning")
 
     nactions = reward_matrices[0].shape[0]
@@ -38,6 +39,10 @@ def qlearning(reward_matrices, episodes=100, learning_rate=0.8, epsilon=0.1):
     Q1 = np.zeros(nactions)
     Q2 = np.zeros(nactions)
 
+
+    avg_pi1 = np.zeros(nactions)
+    avg_pi2 = np.zeros(nactions)
+    hist1, hist2 = [], []
 
     for episode in range(episodes):
         #S = np.zeros()
@@ -86,16 +91,39 @@ def qlearning(reward_matrices, episodes=100, learning_rate=0.8, epsilon=0.1):
         value_p2 = value_p2 + learning_rate * (r2 - value_p2)
         Q2[action_p2] = value_p2
 
+        avg_pi1 += (np.eye(nactions)[action_p1] - avg_pi1) / (episode+1)
+        avg_pi2 += (np.eye(nactions)[action_p2] - avg_pi2) / (episode+1)
+
+        if episode % 500 == 0:
+            hist1.append(avg_pi1.copy())
+            hist2.append(avg_pi2.copy())
 
     print("Q1:", Q1)
     print("Q2:", Q2)
         
-    return Q1, Q2
-    
+    return np.array(hist1), np.array(hist2)
+
+
+def plot_trajectories(game_name, rewardMatrices, n_seeds=5):
+    plt.figure(figsize=(5, 5))
+    for seed in range(n_seeds):
+        np.random.seed(seed)
+        h1, h2 = qlearning(rewardMatrices)
+        plt.plot(h1[:, 0], h2[:, 0], linewidth=1.2)
+        plt.scatter(h1[0, 0],  h2[0, 0],  color='green', s=30, zorder=5)
+        plt.scatter(h1[-1, 0], h2[-1, 0], color='red',   s=50, zorder=5)
+
+    plt.xlabel("P(Player 1 plays action 0)")
+    plt.ylabel("P(Player 2 plays action 0)")
+    plt.title(f"ε-greedy independent: {game_name}")
+    plt.xlim(0, 1); plt.ylim(0, 1)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 
 for name, reward_matrices in games.items():
-    print(name)
-    qlearning(reward_matrices)
+    if reward_matrices[0].shape[0] == 2:
+        plot_trajectories(name, reward_matrices)
 
 
 
