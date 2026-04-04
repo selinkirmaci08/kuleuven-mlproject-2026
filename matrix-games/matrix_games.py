@@ -31,13 +31,14 @@ games = {
     ),
 }
 # e greedy q-learning (off policy TD)
-def qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, epsilon=0.1):
+def qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, epsilon=0.1, seed=0):
     print("perfoming qlearning")
 
     nactions = reward_matrices[0].shape[0]
-    
-    Q1 = np.zeros(nactions)
-    Q2 = np.zeros(nactions)
+    rng1 = np.random.default_rng(seed)
+    rng2 = np.random.default_rng(seed + 100)
+    Q1 = rng1.uniform(-0.1, 0.1, nactions)
+    Q2 = rng2.uniform(-0.1, 0.1, nactions)
 
 
     avg_pi1 = np.zeros(nactions)
@@ -51,12 +52,12 @@ def qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, epsilon=0.1)
 
         # player 1
         # choose random number between 0 and 1
-        random1 = np.random.rand()
+        random1 = rng1.random()
         # print(random1)
         if random1 < epsilon:
             # random action
             # print("choosing a random action for p2")
-            action_p1 = np.random.randint(0, nactions)
+            action_p1 = rng1.integers(0, nactions)
             value_p1 = Q1[action_p1]
         else:
            #  print("choosing the best action for p2")
@@ -65,12 +66,12 @@ def qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, epsilon=0.1)
 
         # player 2
         # choose random number between 0 and 1
-        random2 = np.random.rand()
+        random2 = rng2.random()
         # print(random2)
         if random2 < epsilon:
             # random action
             # print("choosing a random action for p2")
-            action_p2 = np.random.randint(0, nactions)
+            action_p2 = rng2.integers(0, nactions)
             value_p2 = Q2[action_p2]
         else:
             # print("choosing the best action for p2")
@@ -100,7 +101,64 @@ def qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, epsilon=0.1)
 
     print("Q1:", Q1)
     print("Q2:", Q2)
-        
+
+    return np.array(hist1), np.array(hist2)
+
+def boltzmann_qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, temperature=0.1, seed=0):
+    print("perfoming qlearning")
+
+    nactions = reward_matrices[0].shape[0]
+    rng1 = np.random.default_rng(seed)
+    rng2 = np.random.default_rng(seed + 100)
+    Q1 = rng1.uniform(-0.1, 0.1, nactions)
+    Q2 = rng2.uniform(-0.1, 0.1, nactions)
+
+    avg_pi1 = np.zeros(nactions)
+    avg_pi2 = np.zeros(nactions)
+    hist1, hist2 = [], []
+
+    for episode in range(episodes):
+        # S = np.zeros()
+        # choose either greedy or random action
+        # define a tie breaking policy -> max function
+
+        # player 1
+        # choose action according to highest probability
+        exp_q1 = np.exp(Q1 / temperature)
+        pi1 = exp_q1 / np.sum(exp_q1)
+        action_p1 = rng1.choice(nactions, p=pi1)
+
+        # player 2
+        # choose action according to highest probability
+        exp_q2 = np.exp(Q2 / temperature)
+        pi2 = exp_q2 / np.sum(exp_q2)
+        action_p2 = rng2.choice(nactions, p=pi2)
+
+        R1 = reward_matrices[0]
+        R2 = reward_matrices[1]
+
+        r1 = R1[action_p1, action_p2]
+        r2 = R2[action_p1, action_p2]
+
+        # update Q1
+        value_p1 = Q1[action_p1] + learning_rate * (r1 - Q1[action_p1])
+        Q1[action_p1] = value_p1
+
+        # update Q2
+        value_p2 = Q2[action_p2] + learning_rate * (r2 - Q2[action_p2])
+        Q2[action_p2] = value_p2
+
+
+        avg_pi1 += (np.eye(nactions)[action_p1] - avg_pi1) / (episode + 1)
+        avg_pi2 += (np.eye(nactions)[action_p2] - avg_pi2) / (episode + 1)
+
+        if episode % 500 == 0:
+            hist1.append(avg_pi1.copy())
+            hist2.append(avg_pi2.copy())
+
+    print("Q1:", Q1)
+    print("Q2:", Q2)
+
     return np.array(hist1), np.array(hist2)
 
 
@@ -108,7 +166,7 @@ def plot_trajectories(game_name, rewardMatrices, n_seeds=5):
     plt.figure(figsize=(5, 5))
     for seed in range(n_seeds):
         np.random.seed(seed)
-        h1, h2 = qlearning(rewardMatrices)
+        h1, h2 = boltzmann_qlearning(rewardMatrices,seed=seed)
         plt.plot(h1[:, 0], h2[:, 0], linewidth=1.2)
         plt.scatter(h1[0, 0],  h2[0, 0],  color='green', s=30, zorder=5)
         plt.scatter(h1[-1, 0], h2[-1, 0], color='red',   s=50, zorder=5)
@@ -121,9 +179,12 @@ def plot_trajectories(game_name, rewardMatrices, n_seeds=5):
     plt.tight_layout()
     plt.show()
 
+
 for name, reward_matrices in games.items():
     if reward_matrices[0].shape[0] == 2:
         plot_trajectories(name, reward_matrices)
+
+#boltzmann_qlearning(games.get("prisoners_dilemma"))
 
 
 
