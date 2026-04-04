@@ -92,16 +92,10 @@ def qlearning(reward_matrices, episodes=100, learning_rate=0.8, epsilon=0.1):
         
     return Q1, Q2
     
-    # small e > 0
-    # intialize Q for both players (independent learning)
 
-
-
-#for name, reward_matrices in games.items():
-#    print(name)
-    #for i, R in enumerate(reward_matrices, start=1):
-        #print(f"R{i} =", R)
-qlearning(games.get("prisoners_dilemma"))
+for name, reward_matrices in games.items():
+    print(name)
+    qlearning(reward_matrices)
 
 
 
