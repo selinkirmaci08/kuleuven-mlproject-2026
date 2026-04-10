@@ -148,7 +148,6 @@ def boltzmann_qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, te
         value_p2 = Q2[action_p2] + learning_rate * (r2 - Q2[action_p2])
         Q2[action_p2] = value_p2
 
-
         avg_pi1 += (np.eye(nactions)[action_p1] - avg_pi1) / (episode + 1)
         avg_pi2 += (np.eye(nactions)[action_p2] - avg_pi2) / (episode + 1)
 
@@ -161,12 +160,89 @@ def boltzmann_qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, te
 
     return np.array(hist1), np.array(hist2)
 
+# alpha = temperature multiplication coefficient
+# beta  = exponent coefficient
+# delta = temperature decay coefficient
+def lenient_boltzmann_qlearning(
+        reward_matrices, episodes = 100_000, learning_rate=0.1, maxTemp = 10.0, 
+        alpha = 0.1, beta = 1.0, delta = 0.999, seed =0
+):
+    nactions = reward_matrices[0].shape[0]
+
+    # initial settings
+    rng = np.random.default_rng(seed)
+    
+    # utilities (Q values)
+    U1 = rng.uniform(0,0.001, nactions)
+    U2 = rng.uniform(0,0.001, nactions)
+
+    # temperatures
+    Temp1 = np.full(nactions, maxTemp)
+    Temp2 = np.full(nactions, maxTemp)
+
+    # for plotting purposes
+    avg_pi1 = np.zeros(nactions)
+    avg_pi2 = np.zeros(nactions)
+    hist1, hist2 = [], []
+
+    R1, R2 = reward_matrices
+
+    for episode in range(episodes):
+        # action selection
+        logits1 = U1 / np.maximum(Temp1, 1e-6)
+        logits1 -= np.max(logits1)    
+        W1 = np.exp(logits1)
+        W1 /= np.sum(W1)
+        a1 = rng.choice(nactions, p=W1)
+
+        logits2 = U2 / np.maximum(Temp2, 1e-6)
+        logits2 -= np.max(logits2)
+        W2 = np.exp(logits2)
+        W2 /= np.sum(W2)
+        a2 = rng.choice(nactions, p=W2)
+        
+        r1 = R1[a1, a2]
+        r2 = R2[a1, a2]
+
+        #W1[episode] = (e^(U[action]/MinTemp))/(sum(e^(U[action]/MinTemp)))
+        # use probability distribution w1... Wn to select action i
+        
+        # for player 1
+        RandVal = rng.random()
+        leniency_term = 1e-2 + beta ** (-alpha * Temp1[a1])
+        if (U1[a1] <= r1) or (RandVal < leniency_term):
+            U1[a1] = learning_rate * U1[a1] + (1 - learning_rate) * r1
+        
+        Temp1[a1] *= delta
+
+        # for player 2
+        RandVal = rng.random()
+        leniency_term = 1e-2 + beta ** (-alpha * Temp2[a2])
+        if (U2[a2] <= r2) or (RandVal < leniency_term):
+            U2[a2] = learning_rate * U2[a2] + (1 - learning_rate) * r2
+        
+        Temp2[a2] *= delta
+
+        # histogram tracking
+        avg_pi1 += (np.eye(nactions)[a1] - avg_pi1) / (episode + 1)
+        avg_pi2 += (np.eye(nactions)[a2] - avg_pi2) / (episode + 1)
+        
+        if episode % 500 == 0:
+            hist1.append(avg_pi1.copy())
+            hist2.append(avg_pi2.copy())
+
+    print("U1:", U1)
+    print("U2:", U2)
+
+    return np.array(hist1), np.array(hist2)
+
+
 
 def plot_trajectories(game_name, rewardMatrices, n_seeds=5):
     plt.figure(figsize=(5, 5))
     for seed in range(n_seeds):
         np.random.seed(seed)
-        h1, h2 = boltzmann_qlearning(rewardMatrices,seed=seed)
+        h1, h2 = lenient_boltzmann_qlearning(rewardMatrices,seed=seed)
         plt.plot(h1[:, 0], h2[:, 0], linewidth=1.2)
         plt.scatter(h1[0, 0],  h2[0, 0],  color='green', s=30, zorder=5)
         plt.scatter(h1[-1, 0], h2[-1, 0], color='red',   s=50, zorder=5)
