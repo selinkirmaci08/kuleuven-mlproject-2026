@@ -1,11 +1,10 @@
+from typing import Callable
+import random
+import numpy as np
 import gymnasium
 from gymnasium import spaces
 from pettingzoo.utils import BaseWrapper
 from pettingzoo.utils.env import AgentID, ObsType
-
-ENV_SETTINGS = {
-    "visual_observation": False  # Set to True if using visual observations
-}
 
 
 class CustomWrapper(BaseWrapper):
@@ -24,7 +23,7 @@ class CustomWrapper(BaseWrapper):
         return flat_obs
 
 
-class CustomPredictFunction:
+class CustomPredictFunction(Callable):
     """A random archer agent."""
 
     def __init__(self, env):
@@ -32,3 +31,19 @@ class CustomPredictFunction:
 
     def __call__(self, observation, agent, *args, **kwargs):
         return self.env.action_space(agent).sample()
+
+class CustomZombieDetectorFunction(Callable):
+    """Returns random detections."""
+
+    def __init__(self, env: gymnasium.Env):
+        pass
+
+    def __call__(self, observation, *args, **kwargs):
+        nb_zombies_detected = random.randint(0,4)
+        zombie_rects = np.zeros((nb_zombies_detected, 4))
+        for i in range(nb_zombies_detected):
+            x = random.randint(0,1280-29)
+            y = random.randint(0,720-31)
+            w, h = 29, 31
+            zombie_rects[i, :] = [x, y, w, h]
+        return zombie_rects

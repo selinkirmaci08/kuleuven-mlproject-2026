@@ -1,369 +1,190 @@
+# Using the Departmental Machines Remotely
 
-# Using the departmental machines remotely
+This document is a guide for using the departmental machines remotely. You can access the machines with a secure connection through SSH. This connection can be used for executing commands on the remote machine, tunneling through a firewall, and transferring files.
 
-This document is a guide for using the departmental machines remotely.
-You can access the machines with a secure connection through SSH. This
-connection can be used for executing commands on the remote machine,
-tunneling through a firewall, and transferring files to and from a remote
-machine.
+## Installing the SSH Client
 
-## Installing the SSH client
+### Unix (Linux/macOS)
 
-### Unix
-
-Linux, MacOS and other Unix systems usually come with OpenSSH pre-installed.
-You can run `ssh -V` in a terminal window to verify this. If OpenSSH is not
-installed, you should be able to use your distribution's package manager to
-install the `openssh-client` package.
+Linux, macOS, and other Unix systems usually come with OpenSSH pre-installed. You can run `ssh -V` in a terminal window to verify this. If OpenSSH is not installed, install the `openssh-client` package via your package manager.
 
 ### Windows
 
-On Windows, we recommend [Windows Subsystem for Linux, version
-2 (WSL2)](https://docs.microsoft.com/en-us/windows/wsl/) or PuTTy.
-[Cygwin](https://www.cygwin.com/) and [MobaXterm3](https://www.mobatek.net/)
-are two other options, but they are not covered in this guide.
+Modern Windows (10/11) comes with OpenSSH pre-installed. You can simply open **PowerShell** or **Command Prompt** and run `ssh`.
 
-**WSL2** lets you run a Linux environment (i.e., a Linux terminal) in Windows.
-To install WSL on your Windows machine, follow the instructions on
-[Microsoft’s pages](https://docs.microsoft.com/en-us/windows/wsl/install).
-We recommend using the Ubuntu Linux distribution. Once WSL is installed, you
-will have access to a Bash terminal, and the `ssh` and other Linux commands. If
-you choose this option, you can follow the Unix instructions in the remainder
-of this guide. Instructions on how to access Windows files from the Linux
-terminal are available on
-[Microsoft’s pages](https://docs.microsoft.com/en-us/windows/wsl/faq#how-do-i-access-my-c--drive-).
-You can edit files from the terminal using `nano` or `vim`.
+*Note: If you prefer a full Linux environment on Windows, we recommend [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux). Third-party tools like PuTTY or MobaXterm are no longer necessary for most users, though they can still be used if you prefer the legacy interface.*
 
-**PuTTY** can be downloaded from
-<https://www.chiark.greenend.org.uk/∼sgtatham/putty/latest.html>. The PuTTY
-package consists of several binaries. We will use PuTTY (the SSH client),
-PuTTYgen (the key generator/reformatter), Pageant (the key manager), Plink (the
-command line interface to the PuTTY back-end), and PSCP (the scp client for
-copying files over the secure network). You can download all the binaries
-separately, or get them all in one package. To be able to invoke all the
-binaries from the terminal, ensure that the PuTTY installation folder is in
-your `$PATH` variable.
+## Authenticating with SSH Certificates (MFA)
 
-## Obtaining a SSH key pair
+The department no longer uses static SSH keys (public/private key pairs). Instead, we use temporary **SSH Certificates** that are valid for one day. To get a certificate, you must authenticate using your KU Leuven Multi-Factor Authentication (MFA).
 
-To connect to the departmental computers, you need a SSH key pair. Password-based
-login is disabled. The pair consists of a private key and a public key. The
-private key is kept on your computer and should stay secret. The computer that
-you want to connect to has a list of authorized public keys. The remote
-computer will allow you to connect if it has your public key. You can generate
-an SSH key pair through the website
-<https://www.cs.kuleuven.be/restricted/ssh/>. Public keys that are generated
-this way are automatically distributed on the departmental machines, allowing
-you to access them remotely. If this page indicates your account is **not
-active**, please send us an email.
+### Prerequisites
 
-After having generated an SSH key pair, download the `id_rsa` private key from
-the same web page and store it somewhere safe on your own device (usually
-`$HOME/.ssh`). The public `id_rsa.pub` key of the key pair is automatically
-distributed on the departmental machines, allowing you to access them securely.
-Note that this might take a day, so **do this well before the deadline**!
+* A valid **KU Leuven account** (r-number, u-number, or s-number).
+* The **KU Leuven Authenticator** app set up on your smartphone.
 
-PuTTY needs the private key to be in `.ppk` format. PuTTYgen can
-transform your key to the right format by first loading the existing key
-and then saving it.
+### Step 1: Download the Certificate Tool
 
-## Configuring SSH and running remote commands
+You need a small utility program to request a certificate from the department server. Download the tool for your OS from the [Departmental MFA Documentation](https://admin.kuleuven.be/icts/services/ssh-cert).
 
-### A simple connection
+* **Windows:** Download `certagent.exe`.
+* **Linux/macOS:** Download the `kmk` script.
 
-We can make a connection to a remote machine by opening a terminal and running:
+### Step 2: Activate your Certificate
 
-- on Unix:
+You must run this step **every day** before you start working, as certificates expire after a few hours.
 
-    ```sh
-     # ssh <username>@<remoteMachine> -i <pathToPrivateKey>
-     % ssh r0123456@st.cs.kuleuven.be -i path/to/id_rsa
-     ```
+**On Windows:**
 
-- on Windows:
+1. Run the `certagent.exe` you downloaded (no installation needed).
+2. The first time you run it, enter your KU Leuven username (e.g., `r0123456`).
+3. You will be prompted to approve the login on your **KU Leuven Authenticator** app.
+4. Once approved, the tool automatically loads the certificate into your Windows OpenSSH agent.
 
-    ```sh
-     # plink <username>@<remoteMachine> -i <pathToPrivateKey.pkk>
-     % plink r0123456@st.cs.kuleuven.be -i path/to/id_rsa.pkk
-     ```
+**On Linux / macOS:**
 
-If it found your SSH keys, the session will ask you to enter your
-**passphrase**. This is the passphrase you entered while creating your keys.
-Note that this is not the same as your r-number password. If the session asks
-you to enter a **password**, it did not find your ssh key. Logging in with
-a password will not work. When in doubt and things do not work as expected, try
-using the verbose mode when connecting (`ssh -vvv`).
-
-To avoid typing the key location every time, you can make sure that the
-ssh client finds it automatically. On Unix systems, you do this by
-placing the public key in the `$HOME/.ssh` directory.
-
-### Using a SSH agent
-
-To avoid having to type the passphrase every time, you can use an SSH agent.
-Many Linux distributions (e.g. Ubuntu, Fedora Workstation), and Macs already
-have an SSH agent set up, and you can skip this step. However, if you do not
-have an SSH agent, you can use `ssh-agent`:
-
-```sh
-% eval `ssh - agent -s`
-% ssh-add ~/.ssh/id_rsa
-```
-
-On Windows, you run:
-
-```sh
-% pageant d:path/to/id_rsa.pkk
-```
-
-### Configuration
-
-You can avoid typing the whole command all together by making a
-configuration. On **Unix** systems, this is the file `.ssh/config` with the
-following text:
+1. Open your terminal.
+2. Run the `kmk` tool with your username:
+```bash
+# Replace with your actual path and username
+KMK_USER=r0123456 /path/to/downloaded/kmk
 
 ```
+
+
+3. Approve the login on your **KU Leuven Authenticator** app.
+
+### Step 3: Verify
+
+To verify that you have a valid certificate loaded, run:
+
+```bash
+ssh-add -L
+
+```
+
+If successful, you will see a long string starting with `ssh-rsa-cert...`.
+
+**Troubleshooting:**
+
+* **Expiration:** If your connection is rejected, your certificate has likely expired. Simply run the tool again to renew it.
+* **Conflict with old keys:** If you have old static SSH keys (from `ssh-keygen`), they might conflict. It is recommended to remove them from your agent (`ssh-add -D`) or ensure your config prefers the certificate.
+
+## Configuring SSH and Running Commands
+
+### A Simple Connection
+
+Once your certificate is active, you can connect to the login node by opening a terminal (or PowerShell) and running:
+
+```bash
+ssh r0123456@st.cs.kuleuven.be
+
+```
+
+If the session asks for a **password**, it did not find your SSH certificate. Logging in with a password will not work. Try running `ssh -vvv r0123456@st.cs.kuleuven.be` to debug.
+
+### Configuration (Recommended)
+
+You can avoid typing the full username and hostname every time by creating a **config file**.
+
+* **Location:** `~/.ssh/config` (Linux/macOS) or `C:\Users\YourName\.ssh\config` (Windows).
+* **Content:** Add the text below to the file.
+
+```text
+# 1. The Login Node (Bastion)
 Host pcroom
-    User <r-number>
+    User r0123456     # REPLACE WITH YOUR R-NUMBER
     HostName st.cs.kuleuven.be
     PasswordAuthentication no
-    IdentitiesOnly yes
-    IdentityFile ~/.ssh/id_rsa
-```
+    IdentitiesOnly no
 
-You can now connect with
-
-```sh
- % ssh pcroom
-```
-
-On **Windows**, you use the graphical interface of PuTTY. You first complete
-the configuration by setting:
-
-- Session → Host Name (or IP address) = st.cs.kuleuven.be
-- Session → Port = 22
-- Connection → Data → Auto-login username = r0123456
-
-Then you save it in the *Session* tab by writing *pcroom* in *Saved
-Sessions* and hitting *Save*.
-
-You can now connect with
-
-```sh
- % plink pcroom
- ```
-
-### Getting past the login node
-
-The `st.cs.kuleuven.be` server is a login node, it is not meant to run
-experiments. The machines that you can run experiments on have the
-address `<pcname>.student.cs.kuleuven.be`. The next section points to a
-list of available machines. These machines are not immediately reachable
-outside the KU Leuven network, you need to go through the login node
-first. From the login node, you can reach any other machine again
-through ssh. For example:
-
-```sh
- % ssh st.cs.kuleuven.be
- ...
- (st) % ssh aalst.student.cs.kuleuven.be
-```
-
-This is possible because your private keys were stored automatically in
-`~/.ssh/` on the departmental machines. You can configure the key
-agent and configuration file here the same way as on your personal
-computer.
-
-#### Proxy
-
-You can avoid the two-step login process by setting up a proxy.
-On **Unix** systems, this can be done by adding the following to the configuration file.
-
-```
-ProxyJump st.cs.kuleuven.be
-```
-
-Here is a complete example:
-
-```
-Host pcroom
-    User <r-number>
-    HostName st.cs.kuleuven.be
-    PasswordAuthentication no
-    IdentitiesOnly yes
-    IdentityFile ~/.ssh/id_rsa
-    ForwardAgent yes
-
+# 2. The Compute Nodes (via Proxy)
 Host *.student.cs.kuleuven.be
-    User <r-number>
-    PasswordAuthentication no
-    IdentitiesOnly yes
-    IdentityFile ~/.ssh/id_rsa
+    User r0123456     # REPLACE WITH YOUR R-NUMBER
     ProxyJump pcroom
+
 ```
 
-You can now connect with
+### Accessing Compute Nodes
 
-```sh
- % ssh aalst.student.cs.kuleuven.be
- ```
+The server `st.cs.kuleuven.be` is a **login node**; it is not meant for running experiments. You must connect to a compute node (e.g., `aalst`, `brugge`, etc.).
 
-In **Windows** a proxy can be setup through PuTTY as follows:
+With the configuration above, you can connect directly:
 
-- Session → Host Name (or IP address) = aalst.student.cs.kuleuven.be
-- Session → Port = 22
-- Connection → Data → Auto-login username = r0123456
-- Connection → Proxy → Proxy type = local
-- Connection → Proxy → Proxy hostname = st.cs.kuleuven.be
-- Connection → Proxy → Port = 22
-- Connection → Proxy → Username = r0123456
-- Connection → Proxy → Telnet command, or local
-    proxy command = plink %user@%proxyhost nc %host %port
+```bash
+ssh aalst.student.cs.kuleuven.be
 
-Then you save it in the *Session* tab by writing *aalst* in *Saved
-Sessions* and hitting *Save*.
-
-You can now connect with
-
-```sh
-% plink aalst
 ```
 
-## List of available machines
+This automatically "jumps" through the `pcroom` login node using your credentials.
 
-The page <http://mysql.student.cs.kuleuven.be/> gives an overview of the
-available departmental machines and their current load. Avoid using a machine
-with high-load; it will improve your and the other user's experience.
+## List of Available Machines
 
-This page is only accessible from within the KU Leuven network. You can always
-use SSH to reach it using an SSH tunnel to the server
-`mysql.student.cs.kuleuven.be` at port 80. Set up the tunnel by entering:
+The page [http://mysql.student.cs.kuleuven.be/](http://mysql.student.cs.kuleuven.be/) gives an overview of the available departmental machines and their current load.
 
-- on Unix:
+This page is only accessible from within the KU Leuven network. You can reach it remotely by setting up an SSH tunnel:
 
-    ```sh
-    % ssh -L 10480:mysql.student.cs.kuleuven.be:443 st.cs.kuleuven.be
-    ```
+```bash
+ssh -L 10480:mysql.student.cs.kuleuven.be:443 pcroom
 
-- on Windows:
-
-    ```sh
-    % plink -L 10480:mysql.student.cs.kuleuven.be:443 st.cs.kuleuven.be
-    ```
-
-Now you can reach the website at <https://localhost.cs.kuleuven.be:10480/>.
-Make sure to include the "https"!
-
-## Remote copying
-
-Making a remote copy is similar to making a local copy in the Unix
-terminal. The command for a local copy is:
-
-```sh
-% cp [-r] <source> <destination>
 ```
 
-where source and destination are paths. The `-r` is an optional flag to
-indicate that you also want to copy directories. A remote copy uses
-"secure copy" (`scp`) and needs the ssh configuration of the remote
-computer. For copying to the remote machine we use
+Now, open your browser and go to: [https://localhost:10480/](https://www.google.com/search?q=https://localhost:10480/). (Note: Make sure to include `https`).
 
-- on Unix:
+## Remote Copying
 
-    ```sh
-     % scp [-r] <source> pcroom:<destination>
-     ```
+To transfer files, use the `scp` command. This works in both Unix terminals and Windows PowerShell.
 
-- on Windows:
+**Copying local file TO remote:**
 
-    ```sh
-     % pscp [-r] <source> pcroom:<destination>
-    ```
+```bash
+scp -r ./my_code/ pcroom:/cw/lvs/NoCsBack/vakken/H0T25A/ml-project/r0123456/
 
-For copying from the remote machine we use
-
-- on Unix:
-
-    ```sh
-     % scp [-r] pcroom:<source> <destination>
-     ```
-
-- on Windows:
-
-    ```sh
-    % pscp [-r] pcroom:<source> <destination>
-    ```
-
-If you have a proxy configured, you can directly copy to and from the
-departmental machines. If not, you need to make an intermediate copy on
-the login node.
-
-On Unix machines, you can also use `rsync` instead of `scp`. The usage
-is the same, but this command will analyze the difference between the
-source and destination and only copy what is necessary, thus being more
-efficient.
-
-## Safely running experiments with "screen"
-
-Screen is a useful application for running experiments remotely because
-it allows you to:
-
-- Use multiple shell windows from a single SSH session.
-- Keep a shell active even through network disruptions.
-- Disconnect and re-connect to a shell session from multiple locations.
-- Run a long-running process without maintaining an active shell session.
-
-Starting screen is done by typing:
-
-```sh
-% screen
 ```
 
-This opens a new screen terminal. After hitting Enter, you can start
-working like you would in a normal terminal.
+**Copying remote file TO local:**
 
-There are two ways to leave a screen terminal: terminating and
-detaching. The former kills the screen, including processes that it is
-running. The latter lets the screen run in the background while you
-leave, it can be recovered later. A session can be terminated with
-`<Ctrl>-d` or writing `exit`. It becomes detached with `<Ctrl>-a d` or
-by disrupting the connection, for example a network failure or shutting
-down the computer. Your experiments will thus keep on running, even when
-you lose your internet connection.
+```bash
+scp pcroom:/cw/lvs/NoCsBack/vakken/H0T25A/ml-project/r0123456/results.txt ./
 
-All the screen commands start with `<Ctrl>-a` and are followed by
-another key. These are the most common ones:
-
-- `d` : detach the screen
-- `c` : create a new terminal within screen
-- `n` : go to the next terminal
-- `p` : go to the previous terminal
-- `?` : help page about screen commands
-
-You can reattach to a detached screen by running `screen -r`
-
-## Useful directories
-
-**Home directory**: `/home/r0123456/`
-
-In your home directory you can store your personal files. The home
-directory is accessible from all the departmental machines but not from
-the login node. There is an upper limit on the space that you can use. To
-know the limit and your current usage run:
-
-```sh
-% quota
 ```
 
-**Local space**: `/tmp/`
+*Tip: If you use VS Code, you can simply drag and drop files using the "Remote - SSH" extension.*
 
-Every machine has local space that you can use. This folder is cleaned
-regularly, so do not store anything important here. It is the perfect
-place for heavy output of experiments, just make sure to copy it to a
-safe place if you need to keep it.
+## Safely Running Experiments with "Screen"
 
-**Course directory**: `/cw/lvs/NoCsBack/vakken/H0T25A/ml-project/r0123456`
+Since network connections can drop, you should never run long training jobs directly in the terminal. Use `screen` (or `tmux`) to keep sessions alive in the background.
 
-This folder is your personal space for submitting your implementation. The
-folder is accessible from all the departmental machines but not from the login
-node. There is an upper limit of 50MB.
+1. **Start a session:**
+```bash
+screen
+
+```
+
+
+2. **Detach (Leave running):** Press `Ctrl-a` then `d`.
+You can now safely disconnect SSH; your code will keep running.
+3. **Reattach (Resume):** Log back in and run:
+```bash
+screen -r
+
+```
+
+
+
+**Common Commands (`Ctrl-a` prefix):**
+
+* `Ctrl-a` then `c`: Create new window.
+* `Ctrl-a` then `n`: Next window.
+* `Ctrl-a` then `d`: Detach.
+
+## Useful Directories
+
+**Home directory:** `/home/r0123456/`
+Accessible from all machines. *Check quota with `quota`.*
+
+**Local space:** `/tmp/`
+Fast, local storage on the specific machine you are using. Cleaned regularly. Use this for heavy datasets or logs during training, then move results to your home dir.
+
+**Course directory:** `/cw/lvs/NoCsBack/vakken/H0T25A/ml-project/r0123456`
+Your submission folder. Accessible from all machines (but not the login node). **Limit: 50MB.**

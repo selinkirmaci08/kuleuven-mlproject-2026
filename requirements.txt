@@ -1,5 +1,6 @@
 pettingzoo[butterfly]
 torch
+torchvision
 numpy
 pygame
 ray[rllib]
@@ -8,3 +9,5 @@ dm_tree
 lz4
 gputil
 stable-baselines3
+matplotlib
+pillow

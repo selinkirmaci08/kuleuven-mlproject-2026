@@ -6,19 +6,11 @@ Notice that this code will not learn properlu, as no preprocessing of the data n
 
 """
 
-
-
 from pathlib import Path
-from typing import Callable
 
-import gymnasium
 import pettingzoo
-from gymnasium import spaces
-from pettingzoo.utils import BaseWrapper
-from pettingzoo.utils.env import AgentID, ObsType
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.algorithms.ppo.torch.ppo_torch_rl_module import PPOTorchRLModule
-from ray.rllib.core.rl_module import RLModule, MultiRLModule
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
 from ray.rllib.env.wrappers.pettingzoo_env import PettingZooEnv, ParallelPettingZooEnv
 from ray.rllib.examples.rl_modules.classes.random_rlm import RandomRLModule
@@ -27,45 +19,7 @@ import numpy as np
 import torch
 
 from utils import create_environment
-
-
-
-
-
-class CustomWrapper(BaseWrapper):
-    # This is an example of a custom wrapper that flattens the symbolic vector state of the environment
-    # Wrapper are useful to inject state pre-processing or feature that does not need to be learned by the agent
-
-    def observation_space(self, agent: AgentID) -> gymnasium.spaces.Space:
-        return  spaces.flatten_space(super().observation_space(agent))
-
-    def observe(self, agent: AgentID) -> ObsType | None:
-        obs = super().observe(agent)
-        flat_obs = obs.flatten()
-        return flat_obs
-
-
-class CustomPredictFunction(Callable):
-    """ This is an example of an instantiation of the CustomPredictFunction that loads a trained RLLib algorithm from
-    a checkpoint and extract the policies from it"""
-
-    def __init__(self, env):
-
-        # Here you should load your trained model(s) from a checkpoint in your folder
-        best_checkpoint = (Path("results") / "learner_group" / "learner" / "rl_module").resolve()
-        self.modules = MultiRLModule.from_checkpoint(best_checkpoint)
-
-    def __call__(self, observation, agent, *args, **kwargs):
-        rl_module = self.modules[agent]
-        fwd_ins = {"obs": torch.Tensor(observation).unsqueeze(0)}
-        fwd_outputs = rl_module.forward_inference(fwd_ins)
-        action_dist_class = rl_module.get_inference_action_dist_cls()
-        action_dist = action_dist_class.from_logits(
-            fwd_outputs["action_dist_inputs"]
-        )
-        action = action_dist.sample()[0].numpy()
-        return action
-
+from submission_example_rllib import CustomWrapper
 
 
 
@@ -144,13 +98,11 @@ def training(env, checkpoint_path, max_iterations = 500):
 
 if __name__ == "__main__":
 
-    num_agents = 1
-    visual_observation = False
 
     # Create the PettingZoo environment for training
-    env = create_environment(num_agents=num_agents, visual_observation=visual_observation)
+    env = create_environment()
     env = CustomWrapper(env)
 
     # Running training routine
     checkpoint_path = str(Path("results").resolve())
-    training(env, checkpoint_path, max_iterations = 500)
+    training(env, checkpoint_path, max_iterations = 100)

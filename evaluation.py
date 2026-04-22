@@ -15,12 +15,13 @@ import logging
 import random
 import sys
 import time
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pygame
 
-from utils import create_environment
+from utils import create_environment, iou
 
 logger = logging.getLogger("ml-project")
 
@@ -150,6 +151,50 @@ def evaluate(
     return results
 
 
+def evaluate_zombies(predict_function):
+    # Get all datafiles
+    obs_dir = Path(__file__).parent / "observation_data"
+    obs_files = list(obs_dir.glob("*_obs.npy"))
+    precisions = []
+    start_time = time.time()
+    for i, obs_file in enumerate(obs_files):
+        zombies_file = obs_file.parent / obs_file.name.replace("_obs.npy", "_zombies.npy")
+        logger.info(f"Evaluating instance {i} ({obs_file.name}, {zombies_file.name})")
+        if not zombies_file.exists():
+            raise Exception(f"File missing: {zombies_file}")
+        obs = np.load(obs_file)
+        zombies_gt = np.load(zombies_file)
+        zombies_pred = predict_function(obs)
+        zombies_mask = np.zeros((zombies_gt.shape[0]), dtype=np.bool_)
+        found = 0
+        for zombie_pred in zombies_pred:
+            for z_i, zombie_gt in enumerate(zombies_gt):
+                if zombies_mask[z_i]:
+                    continue
+                if iou(zombie_pred, zombie_gt) >= 0.5:
+                    found += 1
+                    zombies_mask[z_i] = True
+        precisions.append(found / zombies_gt.shape[0])
+    total_time = time.time() - start_time
+    avgp = sum(precisions) / len(precisions)
+
+    results = {
+        "total_images": len(obs_files),
+        "avg_precision": avgp,
+        "all_precisions": precisions,
+        "evaluation_time": total_time,
+    }
+
+    print("\nEvaluation Results:")
+    print(f"- Total images: {len(obs_files)}")
+    print(f"- Avg precision: {avgp}")
+    print(f"- All precisions: {precisions}")
+    print(f"- Total evaluation time: {results['evaluation_time']:.2f} seconds")
+
+    return results
+
+
+
 def handle_pygame_events() -> bool:
     """Handle pygame events and return True if user requested to quit."""
     events = pygame.event.get()
@@ -220,9 +265,6 @@ def main(argv=None) -> int:
         default=42,
         help="Master seed for random number generation",
     )
-    parser.add_argument(
-        "--agents", type=int, default=1, help="Number of agents in the environment"
-    )
     parser.add_argument("--output", "-o", help="JSONL file to save results")
     parser.add_argument(
         "--append",
@@ -230,7 +272,20 @@ def main(argv=None) -> int:
         action="store_true",
         help="Append to output file instead of overwriting",
     )
+    parser.add_argument(
+        "--distortion",
+        "-d",
+        type=int,
+        default=5,
+        help="Distortion leven. Number between 0 and 5.",
+    )
     parser.add_argument("--id", "-i", help="Agent ID to include in the output")
+    parser.add_argument(
+        "--zombies",
+        "-z",
+        action="store_true",
+        help="Evaluate only the zombie detector",
+    )
 
     args = parser.parse_args(argv)
     setup_logging(args.verbose, args.quiet)
@@ -243,25 +298,28 @@ def main(argv=None) -> int:
 
     # Generate random seeds for episodes
     seeds = generate_random_seeds(args.episodes, args.seed)
-    logger.info(f"Evaluating with {args.episodes} episodes (master seed: {args.seed})")
+    if not args.zombies:
+        logger.info(f"Evaluating with {args.episodes} episodes (master seed: {args.seed})")
 
     # Load agent
     env_settings = {
-        "visual_observation": False,
         "frame_stack": None,
         "resize_dim": None,
+        "distortion_level": args.distortion,
     }
     try:
         if args.load:
             agent_module = load_agent_module(args.load)
             CustomWrapper = agent_module.CustomWrapper
             CustomPredictFunction = agent_module.CustomPredictFunction
+            CustomZombieDetectorFunction = agent_module.CustomZombieDetectorFunction
             if hasattr(agent_module, "ENV_SETTINGS"):
                 env_settings = {**env_settings, **agent_module.ENV_SETTINGS}
         else:
-            from submission_single_example_rllib import (
+            from submission_example_rllib import (
                 CustomPredictFunction,
                 CustomWrapper,
+                CustomZombieDetectorFunction,
             )
 
     except Exception as e:
@@ -270,14 +328,18 @@ def main(argv=None) -> int:
 
     # Create and wrap environment
     env = create_environment(
-        num_agents=args.agents,
         render_mode=render_mode,
         **env_settings,
     )
     env = CustomWrapper(env)
 
-    # Run evaluation
-    results = evaluate(env, CustomPredictFunction(env), seeds=seeds)
+    if args.zombies:
+        # Only evaluate the zombie detector
+        results = evaluate_zombies(CustomZombieDetectorFunction(env))
+
+    else:
+        # Evaluate playing the game
+        results = evaluate(env, CustomPredictFunction(env), seeds=seeds)
 
     if args.output:
         save_results_to_jsonl(
