@@ -2,8 +2,11 @@
 """
 from typing import Callable
 import gymnasium
+import numpy as np
 from pettingzoo.utils import BaseWrapper
 from pettingzoo.utils.env import AgentID, ObsType
+from gymnasium import spaces
+from PIL import Image
 
 
 class CustomWrapper(BaseWrapper):
@@ -12,10 +15,14 @@ class CustomWrapper(BaseWrapper):
     """
 
     def observation_space(self, agent: AgentID) -> gymnasium.spaces.Space:
-        pass
+        return spaces.Box(low=0.0, high=1.0, shape=(84, 84, 3), dtype=np.float32)
 
     def observe(self, agent: AgentID) -> ObsType | None:
-        pass
+        obs = super().observe(agent)
+        img = Image.fromarray(obs)
+        resizedImg = img.resize((84, 84))
+        arrayOfResized = np.array(resizedImg)
+        return (arrayOfResized / 255.0).astype(np.float32)
 
 
 class CustomPredictFunction(Callable):

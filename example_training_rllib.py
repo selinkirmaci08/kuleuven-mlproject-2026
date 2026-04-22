@@ -19,7 +19,7 @@ import numpy as np
 import torch
 
 from utils import create_environment
-from submission_example_rllib import CustomWrapper
+from submission import CustomWrapper
 
 
 
@@ -42,7 +42,16 @@ def algo_config(id_env, policies, policies_to_train):
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
-                    x: RLModuleSpec(module_class=PPOTorchRLModule, model_config={"fcnet_hiddens": [64, 64]})
+                    x: RLModuleSpec(module_class=PPOTorchRLModule, model_config={
+                                                                    "conv_filters": [
+                                                                        [32, 8, 4],
+                                                                        [64, 4, 2],
+                                                                        [64, 3, 1],
+                                                                    ],
+                                                                    "conv_activation": "relu",
+                                                                    "fcnet_hiddens": [512],
+                                                                    "fcnet_activation": "relu",
+                                                                })
                     if x in policies_to_train
                     else
                     RLModuleSpec(module_class=RandomRLModule)
@@ -105,4 +114,4 @@ if __name__ == "__main__":
 
     # Running training routine
     checkpoint_path = str(Path("results").resolve())
-    training(env, checkpoint_path, max_iterations = 100)
+    training(env, checkpoint_path, max_iterations = 200)
