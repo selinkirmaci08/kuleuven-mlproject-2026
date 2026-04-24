@@ -1,2 +1,19 @@
 .idea/
 .venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ML artifacts / trained models
+*.pkl
+*.npy
+
+# Ray / RLlib checkpoint metadata
+*.json
+
+# Logs & local results
+results/
+ray_results/
+*.log
