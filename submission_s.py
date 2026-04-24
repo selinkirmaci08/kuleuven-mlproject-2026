@@ -14,7 +14,6 @@ import supersuit as ss
 
 
 ENV_SETTINGS = {
-    "visual_observation": True,  # Set to True if using visual observations
     # the following parameters are only relevant if visual_observation is True
     "frame_stack": 4,  # Number of frames to stack (None for no stacking)
     "resize_dim": None,  # Tuple (width, height) to resize visual observations
@@ -26,32 +25,19 @@ class CustomWrapper(BaseWrapper):
     """
 
     def __init__(self, env):
-        super().__init__(env)
         env = ss.frame_skip_v0(env, 4)
-        self.buffer: [AgentID, list] = []
+        env = ss.color_reduction_v0(env, mode="B")
+        env = ss.resize_v1(env, x_size=84, y_size=84)
+        env = ss.dtype_v0(env, np.float32)
+        env = ss.normalize_obs_v0(env, env_min=0.0, env_max=1.0)
+        env = ss.frame_stack_v1(env, 4)
+        super().__init__(env)
 
-    def observation_space(self, agent: AgentID) -> gymnasium.spaces.Space:
-        return spaces.Box(low=0.0, high=1.0, shape=(84, 84, 4), dtype=np.float32)
+    def observation_space(self, agent):
+        return self.env.observation_space(agent)
 
-    def observe(self, agent: AgentID) -> ObsType | None:
-        obs = super().observe(agent)
-        img = Image.fromarray(obs).convert("L").resize((84, 84))  # grayscale
-        arr = np.array(img, dtype=np.uint8)[..., None]  # (84,84,1)
-
-        buf = self.buffers.setdefault(agent, [])
-        buf.append(arr)
-        if len(buf) > 4:
-            buf.pop(0)
-        while len(buf) < 4:
-            buf.append(arr)
-
-        stacked = np.concatenate(buf, axis=2)  # (84, 84, 4)
-        return (stacked / 255.0).astype(np.float32)
-
-    def reset(self, seed=None, options=None):
-        self.buffers = {}
-        return super().reset(seed=seed, options=options)
-
+    def observe(self, agent):
+        return self.env.observe(agent)
 
 class CustomPredictFunction(Callable):
     """Function to use to load the trained model and predict the action"""
