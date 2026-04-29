@@ -12,8 +12,15 @@ __pycache__/
 
 # Ray / RLlib checkpoint metadata
 *.json
+*.pt
+
+# Generated training data for zombie detector
+runs/
+dataset/
+
 
 # Logs & local results
 results/
+results_vector/
 ray_results/
 *.log
