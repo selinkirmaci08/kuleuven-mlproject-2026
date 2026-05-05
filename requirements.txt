@@ -12,5 +12,5 @@ stable-baselines3
 matplotlib
 pillow
 
-# dvc + mlflow for PPO training collaboration
-dvc
+# dvc for PPO training collaboration
+dvc[gdrive]
