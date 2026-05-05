@@ -1,17 +1,18 @@
 """Template of your submission file for Task 3 (multi agent KAZ).
 """
-from typing import Callable
+from typing                 import Callable
 import gymnasium
-import numpy as np
-from pettingzoo.utils import BaseWrapper
-from pettingzoo.utils.env import AgentID, ObsType
-from gymnasium import spaces
-from PIL import Image
+import numpy                as np
+from pettingzoo.utils       import BaseWrapper
+from pettingzoo.utils.env   import AgentID, ObsType
+from gymnasium              import spaces
+from PIL                    import Image
+import supersuit            as ss
 
-TARGET_SIZE = (84, 84) # TODO: if no GPU better 64
+TARGET_SIZE = (84, 84)
 
 ENV_SETTINGS = {
-    "visual_observation": True, # Forced to True by the project and utils.py
+    #"visual_observation": True, # Forced to True by the project and utils.py
     "frame_stack": 3,  # Number of frames to stack (None for no stacking)
     "resize_dim": TARGET_SIZE,  # Tuple (width, height) to resize visual observations
 }
@@ -20,20 +21,13 @@ class CustomWrapper(BaseWrapper):
     """
     Wrapper to use to add state pre-processing (feature engineering)
     """
-
-    def observation_space(self, agent: AgentID) -> gymnasium.spaces.Space:
-        h, w = TARGET_SIZE
-        c = 3 #RGB
-
-        return spaces.Box(low=0.0, high=1.0, shape=(h * w * c,), dtype=np.float32)
-
-    def observe(self, agent: AgentID) -> ObsType | None:
-        obs = super().observe(agent)
-        img = Image.fromarray(obs)
-        resizedImg = img.resize((TARGET_SIZE[1], TARGET_SIZE[0]), Image.BILINEAR)
-        arrayOfResized = np.array(resizedImg)
-        return (arrayOfResized / 255.0).astype(np.float32) # normalize and flatten
-
+    def __init__(self, env):
+        env = ss.color_reduction_v0(env, mode="B")
+        env = ss.resize_v1(env, x_size=TARGET_SIZE[1], y_size=TARGET_SIZE[0])
+        env = ss.dtype_v0(env, dtype=np.float32)
+        env = ss.normalize_obs_v0(env, env_min=0.0, env_max=1.0)
+        env = ss.frame_stack_v1(env, ENV_SETTINGS["frame_stack"])
+        super().__init__(env)
 
 class CustomPredictFunction(Callable):
     """Function to use to load the trained model and predict the action"""
