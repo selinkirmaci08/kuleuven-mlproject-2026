@@ -15,7 +15,6 @@ __pycache__/
 *.pt
 
 # Generated training data for zombie detector
-runs/
 dataset/
 
 
@@ -32,3 +31,4 @@ rl_module/
 *.pt
 /results_vector
 /results
+/runs
