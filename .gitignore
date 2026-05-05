@@ -24,3 +24,11 @@ results/
 results_vector/
 ray_results/
 *.log
+*/results/
+*/ray_results/
+learner/
+rl_module/
+*.pkl
+*.pt
+/results_vector
+/results
