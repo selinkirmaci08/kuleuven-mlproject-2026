@@ -144,30 +144,31 @@ def get_zombie_positions_yolo(raw_obs: np.ndarray) -> np.ndarray:
 # ── Wrapper ───────────────────────────────────────────────────────────────────
 
 class CustomWrapper(BaseWrapper):
-    """
-    Vector-only wrapper. observe() returns a flat (20,) float32 vector — NO image.
-
-    Layout:
-      [archer_0_x, archer_0_y, archer_0_dir_x, archer_0_dir_y,
-       archer_1_x, archer_1_y, archer_1_dir_x, archer_1_dir_y,
-       z0_cx, z0_cy, z0_conf,
-       z1_cx, z1_cy, z1_conf,
-       z2_cx, z2_cy, z2_conf,
-       z3_cx, z3_cy, z3_conf]
-    """
-
-    def __init__(self, env):
-        self._unwrapped = env
-        self._raw_env   = env
+    def __init__(self, env, inference_mode: bool = True):
+        self._unwrapped      = env
+        self._raw_env        = env
+        self._inference_mode = inference_mode
+        self._cached_zombie_pos = np.zeros(ZOMBIE_DIM, dtype=np.float32)
+        self._cache_step = -1
         super().__init__(env)
+
+    def observe(self, agent: AgentID) -> ObsType:
+        archer_pos = get_archer_positions(self._unwrapped)
+        if self._inference_mode:
+            raw = unwrap_to_raw(self._unwrapped)
+            current_step = getattr(raw, "frames", self._cache_step + 1)
+            if current_step != self._cache_step:
+                raw_obs = self._raw_env.observe(agent)
+                self._cached_zombie_pos = get_zombie_positions_yolo(raw_obs)
+                self._cache_step = current_step
+            zombie_pos = self._cached_zombie_pos
+        else:
+            zombie_pos = get_zombie_positions_from_sprites(self._unwrapped)
+        return np.concatenate([archer_pos, zombie_pos])
 
     def observation_space(self, agent: AgentID) -> spaces.Space:
         return spaces.Box(low=0.0, high=1.0, shape=(VEC_DIM,), dtype=np.float32)
 
-    def observe(self, agent: AgentID) -> ObsType:
-        archer_pos = get_archer_positions(self._unwrapped)               # (8,)
-        zombie_pos = get_zombie_positions_from_sprites(self._unwrapped)  # (12,)
-        return np.concatenate([archer_pos, zombie_pos])                  # (20,)
 
     def observe_inference(self, agent: AgentID) -> ObsType:
         """Used at inference — runs YOLO on pixels for zombie positions."""

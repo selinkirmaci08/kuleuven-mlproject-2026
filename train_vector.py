@@ -33,7 +33,7 @@ from submission_vector import CustomWrapper
 def make_env():
     """Factory function — each Ray worker creates its own env instance."""
     env = create_environment()
-    env = CustomWrapper(env)
+    env = CustomWrapper(env, inference_mode=False)
     return ParallelPettingZooEnv(pettingzoo.utils.conversions.aec_to_parallel(env))
 
 
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     ray.init()
 
     env = create_environment()
-    env = CustomWrapper(env)
+    env = CustomWrapper(env, inference_mode=False)
     env.reset()
 
     checkpoint_path = str(Path("results_vector").resolve())
