@@ -77,7 +77,7 @@ def get_returns(result):
     return result.get("env_runners", {}).get("policy_reward_mean", {})
 
 
-def training(env, checkpoint_path, max_iterations=200):
+def training(env, checkpoint_path, max_iterations=500):
 
     id_env = "knights_archers_zombies_v10_vector"
     register_env(id_env, lambda config: make_env())
@@ -147,4 +147,4 @@ if __name__ == "__main__":
     env.reset()
 
     checkpoint_path = str(Path("results_vector").resolve())
-    training(env, checkpoint_path, max_iterations=200)
+    training(env, checkpoint_path, max_iterations=500)

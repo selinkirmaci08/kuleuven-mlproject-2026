@@ -27,6 +27,7 @@ from pettingzoo.utils import BaseWrapper
 from pettingzoo.utils.env import AgentID, ObsType
 from gymnasium import spaces
 
+import os
 
 ENV_SETTINGS = {
     "frame_stack": None,
@@ -43,8 +44,9 @@ VEC_DIM            = PER_ARCHER_DIM * 2  # 24 total
 NUM_ACTIONS        = 6
 NUM_ARCHERS        = 2
 
-YOLO_WEIGHTS    = "runs/detect/train/weights/best.pt"
-CHECKPOINT_PATH = "results_vector"
+_DIR            = os.path.dirname(os.path.abspath(__file__))
+YOLO_WEIGHTS    = os.path.join(_DIR, "runs", "detect", "train", "weights", "best.pt")
+CHECKPOINT_PATH = os.path.join(_DIR, "results_vector")
 
 
 # ── YOLO singleton ────────────────────────────────────────────────────────────
