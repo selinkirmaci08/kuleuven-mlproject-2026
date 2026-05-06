@@ -1,17 +1,20 @@
 """
-submission_vector.py  —  Option A: Vector-only policy (ablation experiment).
+submission_vector.py  —  Vector policy with alignment + rotation direction.
 
-NO pixel observations. The policy receives only:
-  - Archer positions + facing direction vector (exact, from sprite rects)
-  - Zombie positions + confidence (from sprite rects during training, YOLO at inference)
+Observation per archer (12 floats):
+  [x, y, dir_x, dir_y,                          ← 4 absolute
+   z0_align, z0_cross, z1_align, z1_cross,       ← 2 per zombie (8 total)
+   z2_align, z2_cross, z3_align, z3_cross]
 
-Vector layout (20 floats total):
-  [archer_0_x, archer_0_y, archer_0_dir_x, archer_0_dir_y,   ← 4
-   archer_1_x, archer_1_y, archer_1_dir_x, archer_1_dir_y,   ← 4
-   z0_cx, z0_cy, z0_conf,                                     ← 3
-   z1_cx, z1_cy, z1_conf,
-   z2_cx, z2_cy, z2_conf,
-   z3_cx, z3_cy, z3_conf]                                     → 20 total
+  align: 1.0 = zombie directly in front → shoot now
+         0.5 = zombie to the side
+         0.0 = zombie directly behind
+
+  cross: 1.0 = zombie is to the LEFT  → rotate left to face it
+         0.5 = zombie is directly ahead/behind (no rotation needed)
+         0.0 = zombie is to the RIGHT → rotate right to face it
+
+Total observation: 24 floats (12 per archer, own perspective first)
 """
 
 from pathlib import Path
@@ -33,16 +36,18 @@ ENV_SETTINGS = {
 # ── Dimensions ────────────────────────────────────────────────────────────────
 SCREEN_W, SCREEN_H = 1280, 720
 MAX_ZOMBIES        = 4
-ARCHER_DIM         = 8           # 2 archers × (x, y, dir_x, dir_y)
-ZOMBIE_DIM         = MAX_ZOMBIES * 3
-VEC_DIM            = ARCHER_DIM + ZOMBIE_DIM   # 20
-NUM_ACTIONS        = 6           # KAZ action space size
+ARCHER_ABS_DIM     = 4                    # x, y, dir_x, dir_y
+ZOMBIE_REL_DIM     = MAX_ZOMBIES * 2      # align, cross per zombie
+PER_ARCHER_DIM     = ARCHER_ABS_DIM + ZOMBIE_REL_DIM   # 12
+VEC_DIM            = PER_ARCHER_DIM * 2  # 24 total
+NUM_ACTIONS        = 6
+NUM_ARCHERS        = 2
 
-YOLO_WEIGHTS       = "runs/detect/train/weights/best.pt"
-CHECKPOINT_PATH    = "results_vector"
+YOLO_WEIGHTS    = "runs/detect/train/weights/best.pt"
+CHECKPOINT_PATH = "results_vector"
 
 
-# ── YOLO singleton (inference only) ──────────────────────────────────────────
+# ── YOLO singleton ────────────────────────────────────────────────────────────
 
 _yolo_model = None
 
@@ -61,7 +66,7 @@ def get_yolo_model():
 # ── Feature extraction ────────────────────────────────────────────────────────
 
 def unwrap_to_raw(env):
-    """Follow wrapper chain to find the raw KAZ env with archer_list."""
+    """Follow wrapper chain to find the raw KAZ env."""
     cur, seen = env, set()
     while cur is not None:
         if id(cur) in seen:
@@ -76,84 +81,142 @@ def unwrap_to_raw(env):
     return cur
 
 
-def get_archer_positions(env) -> np.ndarray:
+def get_observation_for_archer(env, archer_idx: int,
+                                zombie_positions: list) -> np.ndarray:
     """
-    Archer positions + facing direction, normalised to [0, 1].
-    Layout: [x0, y0, dir_x0, dir_y0, x1, y1, dir_x1, dir_y1]
-    direction components normalised from [-1, 1] → [0, 1].
-    Dead archers get zeros.
+    Build 12-float observation for one archer.
+
+    For each zombie:
+      align = dot(facing, zombie_dir)  normalised to [0,1]
+              1.0 = zombie directly in front → shoot
+      cross = cross(facing, zombie_dir) normalised to [0,1]
+              1.0 = rotate LEFT to face zombie
+              0.0 = rotate RIGHT to face zombie
+              0.5 = zombie is ahead or behind (no rotation needed)
+
+    Together align+cross give the policy both WHEN to shoot and
+    WHICH WAY to rotate to face the zombie.
     """
-    pos = np.zeros(ARCHER_DIM, dtype=np.float32)
+    vec = np.zeros(PER_ARCHER_DIM, dtype=np.float32)
     raw = unwrap_to_raw(env)
+
     if not hasattr(raw, "archer_list"):
-        return pos
-    alive = env.agents
-    for i, archer in enumerate(raw.archer_list):
-        if f"archer_{i}" not in alive:
-            continue
-        r = archer.rect
-        pos[4*i]   = np.clip((r.x + r.width  / 2) / SCREEN_W, 0.0, 1.0)
-        pos[4*i+1] = np.clip((r.y + r.height / 2) / SCREEN_H, 0.0, 1.0)
-        pos[4*i+2] = (float(archer.direction.x) + 1.0) / 2.0
-        pos[4*i+3] = (float(archer.direction.y) + 1.0) / 2.0
-    return pos
-
-
-def get_zombie_positions_from_sprites(env) -> np.ndarray:
-    """
-    Zombie positions from sprite rects — used during TRAINING.
-    Confidence is always 1.0 (ground truth). Missing slots are zeros.
-    """
-    vec = np.zeros(ZOMBIE_DIM, dtype=np.float32)
-    raw = unwrap_to_raw(env)
-    if not hasattr(raw, "zombie_list"):
         return vec
-    for slot, zombie in enumerate(list(raw.zombie_list)[:MAX_ZOMBIES]):
-        r = zombie.rect
-        vec[slot*3]   = np.clip((r.x + r.width  / 2) / SCREEN_W, 0.0, 1.0)
-        vec[slot*3+1] = np.clip((r.y + r.height / 2) / SCREEN_H, 0.0, 1.0)
-        vec[slot*3+2] = 1.0
+
+    archer_list = list(raw.archer_list)
+
+    # Archer might have died — return zeros
+    if archer_idx >= len(archer_list):
+        return vec
+
+    alive = env.agents
+    if f"archer_{archer_idx}" not in alive:
+        return vec
+
+    archer = archer_list[archer_idx]
+    r  = archer.rect
+    ax = (r.x + r.width  / 2) / SCREEN_W
+    ay = (r.y + r.height / 2) / SCREEN_H
+    dx = float(archer.direction.x)   # unit vector, already normalised
+    dy = float(archer.direction.y)
+
+    # Absolute archer position + direction
+    vec[0] = np.clip(ax, 0.0, 1.0)
+    vec[1] = np.clip(ay, 0.0, 1.0)
+    vec[2] = (dx + 1.0) / 2.0   # normalise [-1,1] → [0,1]
+    vec[3] = (dy + 1.0) / 2.0
+
+    # Relative zombie signals
+    for slot, (zx, zy) in enumerate(zombie_positions[:MAX_ZOMBIES]):
+        rel_x = zx - ax
+        rel_y = zy - ay
+
+        # Distance — normalise by screen diagonal
+        dist = (rel_x**2 + rel_y**2) ** 0.5
+
+        # Normalise relative direction to unit vector
+        if dist > 1e-6:
+            norm_x = rel_x / dist
+            norm_y = rel_y / dist
+        else:
+            norm_x, norm_y = 0.0, 0.0
+
+        # Dot product — alignment (how directly in front is the zombie)
+        # dx,dy is already a unit vector so dot is in [-1, 1]
+        dot   = norm_x * dx + norm_y * dy
+        align = np.clip((dot + 1.0) / 2.0, 0.0, 1.0)
+
+        # Cross product — rotation direction needed
+        # cross > 0: zombie is to the LEFT  → rotate left (action 1)
+        # cross < 0: zombie is to the RIGHT → rotate right (action 2)
+        # cross = 0: zombie is ahead or behind
+        cross      = norm_x * dy - norm_y * dx
+        cross_norm = np.clip((cross + 1.0) / 2.0, 0.0, 1.0)
+
+        vec[ARCHER_ABS_DIM + slot*2]   = align
+        vec[ARCHER_ABS_DIM + slot*2+1] = cross_norm
+
     return vec
 
 
-def get_zombie_positions_yolo(raw_obs: np.ndarray) -> np.ndarray:
-    """
-    YOLO zombie detections — used at INFERENCE time only.
-    Returns flat (12,) vector [cx, cy, conf] per slot. Missing slots are zeros.
-    """
-    vec   = np.zeros(ZOMBIE_DIM, dtype=np.float32)
+def get_zombie_positions_from_sprites(env) -> list:
+    """Sprite rect zombie positions — TRAINING only."""
+    positions = []
+    raw = unwrap_to_raw(env)
+    if not hasattr(raw, "zombie_list"):
+        return positions
+    for zombie in list(raw.zombie_list)[:MAX_ZOMBIES]:
+        r = zombie.rect
+        cx = np.clip((r.x + r.width  / 2) / SCREEN_W, 0.0, 1.0)
+        cy = np.clip((r.y + r.height / 2) / SCREEN_H, 0.0, 1.0)
+        positions.append((cx, cy))
+    return positions
+
+
+def get_zombie_positions_yolo(raw_obs: np.ndarray) -> list:
+    """YOLO zombie positions — INFERENCE only."""
+    positions = []
     model = get_yolo_model()
     if model is None:
-        return vec
+        return positions
     try:
         results = model(raw_obs, verbose=False)[0]
         if results.boxes is None or len(results.boxes) == 0:
-            return vec
+            return positions
         xyxy  = results.boxes.xyxy.cpu().numpy()
         confs = results.boxes.conf.cpu().numpy()
-        for slot, idx in enumerate(np.argsort(-confs)[:MAX_ZOMBIES]):
+        for idx in np.argsort(-confs)[:MAX_ZOMBIES]:
             x1, y1, x2, y2 = xyxy[idx]
-            vec[slot*3]   = np.clip(((x1+x2)/2) / SCREEN_W, 0.0, 1.0)
-            vec[slot*3+1] = np.clip(((y1+y2)/2) / SCREEN_H, 0.0, 1.0)
-            vec[slot*3+2] = np.clip(float(confs[idx]),       0.0, 1.0)
+            cx = np.clip(((x1+x2)/2) / SCREEN_W, 0.0, 1.0)
+            cy = np.clip(((y1+y2)/2) / SCREEN_H, 0.0, 1.0)
+            positions.append((cx, cy))
     except Exception as e:
         print(f"[VectorPolicy] YOLO error: {e}")
-    return vec
+    return positions
 
 
 # ── Wrapper ───────────────────────────────────────────────────────────────────
 
 class CustomWrapper(BaseWrapper):
-    def __init__(self, env, inference_mode: bool = True):
-        self._unwrapped      = env
-        self._raw_env        = env
-        self._inference_mode = inference_mode
-        self._cached_zombie_pos = np.zeros(ZOMBIE_DIM, dtype=np.float32)
-        self._cache_step = -1
+    """
+    Returns 24-float observation — each archer sees from its own perspective first.
+
+    inference_mode=False (training):  sprite rects, fast and exact
+    inference_mode=True  (evaluation): YOLO on pixels, real pipeline
+    """
+
+    def __init__(self, env, inference_mode: bool = False):
+        self._unwrapped         = env
+        self._raw_env           = env
+        self._inference_mode    = inference_mode
+        self._cached_zombie_pos = []
+        self._cache_step        = -1
         super().__init__(env)
 
-    def observe(self, agent: AgentID) -> ObsType:
-        archer_pos = get_archer_positions(self._unwrapped)
+    def observation_space(self, agent: AgentID) -> spaces.Space:
+        return spaces.Box(low=0.0, high=1.0, shape=(VEC_DIM,), dtype=np.float32)
+
+    def _get_zombie_positions(self, agent: AgentID) -> list:
         if self._inference_mode:
             raw = unwrap_to_raw(self._unwrapped)
             current_step = getattr(raw, "frames", self._cache_step + 1)
@@ -161,30 +224,26 @@ class CustomWrapper(BaseWrapper):
                 raw_obs = self._raw_env.observe(agent)
                 self._cached_zombie_pos = get_zombie_positions_yolo(raw_obs)
                 self._cache_step = current_step
-            zombie_pos = self._cached_zombie_pos
+            return self._cached_zombie_pos
         else:
-            zombie_pos = get_zombie_positions_from_sprites(self._unwrapped)
-        return np.concatenate([archer_pos, zombie_pos])
+            return get_zombie_positions_from_sprites(self._unwrapped)
 
-    def observation_space(self, agent: AgentID) -> spaces.Space:
-        return spaces.Box(low=0.0, high=1.0, shape=(VEC_DIM,), dtype=np.float32)
+    def observe(self, agent: AgentID) -> ObsType:
+        zombie_pos  = self._get_zombie_positions(agent)
+        obs_archer0 = get_observation_for_archer(self._unwrapped, 0, zombie_pos)
+        obs_archer1 = get_observation_for_archer(self._unwrapped, 1, zombie_pos)
 
-
-    def observe_inference(self, agent: AgentID) -> ObsType:
-        """Used at inference — runs YOLO on pixels for zombie positions."""
-        raw_obs    = self._raw_env.observe(agent)
-        archer_pos = get_archer_positions(self._unwrapped)
-        zombie_pos = get_zombie_positions_yolo(raw_obs)
-        return np.concatenate([archer_pos, zombie_pos])                  # (20,)
+        # Each archer sees its own perspective first
+        if agent == "archer_0":
+            return np.concatenate([obs_archer0, obs_archer1])
+        else:
+            return np.concatenate([obs_archer1, obs_archer0])
 
 
 # ── Pure PyTorch policy network ───────────────────────────────────────────────
 
 class PolicyNet(nn.Module):
-    """
-    Mirrors the MLP architecture used during training (fcnet_hiddens=[128,128,64]).
-    Used for inference only — no RLlib dependency.
-    """
+    """MLP matching fcnet_hiddens=[128,128,64]. Input: 24. Output: 6."""
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
@@ -199,36 +258,22 @@ class PolicyNet(nn.Module):
 
 
 def _load_policy_weights(checkpoint_path: str, policy_id: str) -> PolicyNet:
-    """
-    Extract policy weights from an RLlib old-API-stack checkpoint and load
-    them into a plain PyTorch PolicyNet — no RLlib or Ray needed at runtime.
-    """
+    """Load weights from RLlib old-API checkpoint into PolicyNet."""
     import pickle, os
 
-    # RLlib old API stack saves policies under:
-    # <checkpoint>/policies/<policy_id>/policy_state.pkl
     policy_state_path = os.path.join(
         checkpoint_path, "policies", policy_id, "policy_state.pkl"
     )
-
     if not os.path.exists(policy_state_path):
-        raise FileNotFoundError(
-            f"Policy state not found at {policy_state_path}. "
-            f"Make sure the checkpoint path is correct and training completed."
-        )
+        raise FileNotFoundError(f"Policy state not found at {policy_state_path}")
 
     with open(policy_state_path, "rb") as f:
         policy_state = pickle.load(f)
 
-    # Weights are stored under weights -> default_policy or similar
     weights = policy_state.get("weights", {})
+    net     = PolicyNet()
+    state   = net.state_dict()
 
-    net = PolicyNet()
-    state = net.state_dict()
-
-    # RLlib fcnet weight keys follow the pattern:
-    # _hidden_layers.0.weight, _hidden_layers.0.bias, etc.
-    # Map them to our sequential net keys
     key_map = {
         "_hidden_layers.0._model.0.weight": "net.0.weight",
         "_hidden_layers.0._model.0.bias":   "net.0.bias",
@@ -247,12 +292,8 @@ def _load_policy_weights(checkpoint_path: str, policy_id: str) -> PolicyNet:
             loaded += 1
 
     if loaded == 0:
-        # Print available keys to help debug
-        print(f"[WARNING] No weights matched. Available keys: {list(weights.keys())[:10]}")
-        raise RuntimeError(
-            "Could not map any weights from checkpoint to PolicyNet. "
-            "The weight key format may differ — check the printed keys above."
-        )
+        print(f"[WARNING] No weights matched. Keys: {list(weights.keys())[:5]}")
+        raise RuntimeError("Could not map weights from checkpoint to PolicyNet.")
 
     print(f"[PolicyNet] Loaded {loaded}/8 weight tensors for {policy_id}")
     net.load_state_dict(state)
@@ -263,10 +304,7 @@ def _load_policy_weights(checkpoint_path: str, policy_id: str) -> PolicyNet:
 # ── Prediction ────────────────────────────────────────────────────────────────
 
 class CustomPredictFunction(Callable):
-    """
-    Pure PyTorch inference — no RLlib, no Ray workers, no env registration.
-    Loads policy weights directly from the checkpoint pickle files.
-    """
+    """Pure PyTorch inference — no RLlib, no Ray."""
 
     def __init__(self, env: gymnasium.Env):
         checkpoint_path = str(Path(CHECKPOINT_PATH).resolve())
@@ -280,11 +318,11 @@ class CustomPredictFunction(Callable):
     def __call__(self, observation: np.ndarray, agent: str, *args, **kwargs) -> int:
         net = self._policies.get(agent)
         if net is None:
-            return 0  # fallback: no-op
+            return 0
         with torch.no_grad():
             obs_t  = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
             logits = net(obs_t)
-            action = torch.argmax(logits, dim=-1).item()  # deterministic
+            action = torch.argmax(logits, dim=-1).item()
         return action
 
 
@@ -294,9 +332,11 @@ class CustomZombieDetectorFunction(Callable):
     """YOLO-based zombie detector for evaluation."""
 
     def __init__(self, env: gymnasium.Env):
-        self._use_yolo = get_yolo_model() is not None
+        self._use_yolo = None  # lazy load
 
     def __call__(self, observation: np.ndarray, *args, **kwargs) -> np.ndarray:
+        if self._use_yolo is None:
+            self._use_yolo = get_yolo_model() is not None
         if not self._use_yolo:
             return np.zeros((0, 4), dtype=np.float32)
         img     = observation.reshape(SCREEN_H, SCREEN_W, 3).astype(np.uint8)

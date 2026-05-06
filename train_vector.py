@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 """
-train_vector.py — Training script for Option A: Vector-only policy.
+train_vector.py — Training script for vector policy with relative observations.
 
-Observation vector (20 floats):
+Observation vector (24 floats):
   [archer_0_x, archer_0_y, archer_0_dir_x, archer_0_dir_y,
+   z0_align_0, z0_dist_0, z1_align_0, z1_dist_0,
+   z2_align_0, z2_dist_0, z3_align_0, z3_dist_0,
    archer_1_x, archer_1_y, archer_1_dir_x, archer_1_dir_y,
-   z0_cx, z0_cy, z0_conf,
-   z1_cx, z1_cy, z1_conf,
-   z2_cx, z2_cy, z2_conf,
-   z3_cx, z3_cy, z3_conf]
+   z0_align_1, z0_dist_1, z1_align_1, z1_dist_1,
+   z2_align_1, z2_dist_1, z3_align_1, z3_dist_1]
 
-Uses the OLD RLlib API stack — avoids KeyError: 'advantages' with custom
-RLModules on this version of Ray. Built-in PPO MLP is equivalent to
-VectorPPORLModule and is configured via fcnet_hiddens.
+align: 1.0 = zombie directly in front of archer (shoot now!)
+dist:  0.0 = zombie very close, 1.0 = far away
+
+Uses OLD RLlib API stack. Sprite rects during training (fast, perfect).
 """
 
 from pathlib import Path
@@ -27,11 +28,11 @@ import numpy as np
 import torch
 
 from utils import create_environment
-from submission_vector import CustomWrapper
+from submission_vector import CustomWrapper, unwrap_to_raw
 
 
 def make_env():
-    """Factory function — each Ray worker creates its own env instance."""
+    """Factory — each Ray worker gets its own env. Uses sprite rects (fast)."""
     env = create_environment()
     env = CustomWrapper(env, inference_mode=False)
     return ParallelPettingZooEnv(pettingzoo.utils.conversions.aec_to_parallel(env))
@@ -53,7 +54,7 @@ def algo_config(id_env, policies, policies_to_train):
         )
         .training(
             model={
-                # RLlib infers input size (20) from observation space automatically
+                # RLlib infers input size (24) from observation space automatically
                 "fcnet_hiddens": [128, 128, 64],
                 "fcnet_activation": "relu",
             },
@@ -65,7 +66,7 @@ def algo_config(id_env, policies, policies_to_train):
             lambda_=0.95,
             clip_param=0.2,
             vf_loss_coeff=0.5,
-            entropy_coeff=0.001,
+            entropy_coeff=0.01,   # higher entropy to encourage shooting
         )
         .debugging(log_level="ERROR")
     )
@@ -73,7 +74,6 @@ def algo_config(id_env, policies, policies_to_train):
 
 
 def get_returns(result):
-    """Extract per-agent mean rewards — old API stack uses policy_reward_mean."""
     return result.get("env_runners", {}).get("policy_reward_mean", {})
 
 
@@ -82,50 +82,46 @@ def training(env, checkpoint_path, max_iterations=200):
     id_env = "knights_archers_zombies_v10_vector"
     register_env(id_env, lambda config: make_env())
 
-    np.random.seed(42)
-    torch.manual_seed(42)
-
     policies = list(env.agents)
-    config = algo_config(id_env, policies, policies)
-    algo = config.build()
+    config   = algo_config(id_env, policies, policies)
+    algo     = config.build()
 
     # ── Sanity check ─────────────────────────────────────────────────────────
-    from submission_vector import unwrap_to_raw
     check_env = create_environment()
-    check_env = CustomWrapper(check_env)
+    check_env = CustomWrapper(check_env, inference_mode=False)
     check_env.reset()
     for agent in check_env.agent_iter(max_iter=50):
         obs, rew, term, trunc, info = check_env.last()
         check_env.step(check_env.action_space(agent).sample())
+
     test_obs = check_env.observe(check_env.agents[0])
-    raw = unwrap_to_raw(check_env)
-    print("\n[SANITY CHECK] Observation after 50 steps:")
-    print(f"  archer_0  x={test_obs[0]:.3f}  y={test_obs[1]:.3f}  dir_x={test_obs[2]:.3f}  dir_y={test_obs[3]:.3f}")
-    print(f"  archer_1  x={test_obs[4]:.3f}  y={test_obs[5]:.3f}  dir_x={test_obs[6]:.3f}  dir_y={test_obs[7]:.3f}")
-    print(f"  zombie_0  cx={test_obs[8]:.3f}   cy={test_obs[9]:.3f}   conf={test_obs[10]:.3f}")
-    print(f"  zombie_1  cx={test_obs[11]:.3f}   cy={test_obs[12]:.3f}   conf={test_obs[13]:.3f}")
-    print(f"  zombie_2  cx={test_obs[14]:.3f}   cy={test_obs[15]:.3f}   conf={test_obs[16]:.3f}")
-    print(f"  zombie_3  cx={test_obs[17]:.3f}   cy={test_obs[18]:.3f}   conf={test_obs[19]:.3f}")
-    if hasattr(raw, "archer_list"):
-        for i, archer in enumerate(raw.archer_list):
-            print(f"  [raw] archer_{i} angle={archer.angle}  direction=({archer.direction.x:.2f}, {archer.direction.y:.2f})")
+    raw      = unwrap_to_raw(check_env)
+
+    print("\n[SANITY CHECK] Observation after 50 steps (24 floats):")
+    print(f"  archer_0  x={test_obs[0]:.3f}  y={test_obs[1]:.3f}  "
+          f"dir_x={test_obs[2]:.3f}  dir_y={test_obs[3]:.3f}")
+    for slot in range(4):
+        align = test_obs[4 + slot*2]
+        dist  = test_obs[4 + slot*2 + 1]
+        print(f"  zombie_{slot} (rel to archer_0)  align={align:.3f}  dist={dist:.3f}")
+    print(f"  archer_1  x={test_obs[12]:.3f}  y={test_obs[13]:.3f}  "
+          f"dir_x={test_obs[14]:.3f}  dir_y={test_obs[15]:.3f}")
     if hasattr(raw, "zombie_list"):
         print(f"  [raw] zombie count: {len(list(raw.zombie_list))}")
     check_env.close()
     # ─────────────────────────────────────────────────────────────────────────
 
-    print("\n" + "=" * 55)
-    print("  Vector policy training — KAZ (old API stack)")
-    print("  Observation: 20 floats (pos + dir + zombies)")
+    print("\n" + "=" * 60)
+    print("  Vector policy training — KAZ")
+    print("  Observation: 24 floats (abs pos + relative zombie alignment)")
     print("  Agents:", policies)
-    print("=" * 55)
+    print("=" * 60)
 
     for i in range(max_iterations):
         result = algo.train()
         result.pop("config", None)
 
         returns = get_returns(result)
-
         if returns:
             r0 = returns.get("archer_0", float("nan"))
             r1 = returns.get("archer_1", float("nan"))
@@ -137,8 +133,7 @@ def training(env, checkpoint_path, max_iterations=200):
             save_result = algo.save(checkpoint_path)
             print(f"         └─ checkpoint saved → {save_result.checkpoint.path}")
 
-
-    print("=" * 55)
+    print("=" * 60)
     save_result = algo.save(checkpoint_path)
     print(f"Final checkpoint → {save_result.checkpoint.path}")
     algo.stop()
