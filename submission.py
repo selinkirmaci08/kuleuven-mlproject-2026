@@ -209,7 +209,7 @@ class CustomWrapper(BaseWrapper):
     inference_mode=True  (evaluation): YOLO on pixels, real pipeline
     """
 
-    def __init__(self, env, inference_mode: bool = False):
+    def __init__(self, env, inference_mode: bool = True):
         self._unwrapped         = env
         self._raw_env           = env
         self._inference_mode    = inference_mode
@@ -262,19 +262,17 @@ class PolicyNet(nn.Module):
 
 
 def _load_policy_weights(checkpoint_path: str, policy_id: str) -> PolicyNet:
-    """Load weights from RLlib old-API checkpoint into PolicyNet."""
-    import pickle, os
+    """Load weights from a plain .pt file saved by extract_weights.py."""
+    import os
 
-    policy_state_path = os.path.join(
-        checkpoint_path, "policies", policy_id, "policy_state.pkl"
-    )
-    if not os.path.exists(policy_state_path):
-        raise FileNotFoundError(f"Policy state not found at {policy_state_path}")
+    pt_path = os.path.join(checkpoint_path, f"{policy_id}_weights.pt")
+    if not os.path.exists(pt_path):
+        raise FileNotFoundError(
+            f"Weight file not found: {pt_path}\n"
+            f"Run extract_weights.py locally first to generate it."
+        )
 
-    with open(policy_state_path, "rb") as f:
-        policy_state = pickle.load(f)
-
-    weights = policy_state.get("weights", {})
+    weights = torch.load(pt_path, map_location="cpu", weights_only=False)
     net     = PolicyNet()
     state   = net.state_dict()
 
@@ -296,14 +294,13 @@ def _load_policy_weights(checkpoint_path: str, policy_id: str) -> PolicyNet:
             loaded += 1
 
     if loaded == 0:
-        print(f"[WARNING] No weights matched. Keys: {list(weights.keys())[:5]}")
-        raise RuntimeError("Could not map weights from checkpoint to PolicyNet.")
+        print(f"[WARNING] No weights matched. Available keys: {list(weights.keys())[:8]}")
+        raise RuntimeError(f"Could not map any weights for {policy_id}.")
 
     print(f"[PolicyNet] Loaded {loaded}/8 weight tensors for {policy_id}")
     net.load_state_dict(state)
     net.eval()
     return net
-
 
 # ── Prediction ────────────────────────────────────────────────────────────────
 
