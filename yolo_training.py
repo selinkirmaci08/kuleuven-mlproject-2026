@@ -93,11 +93,14 @@ class YOLOTrainer:
 # ── Quick-start ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     trainer = YOLOTrainer(
-        data=r"dataset\clean\dataset.yaml",
+        data=r"dataset\combined\dataset.yaml",
         model="yolo11n.pt",
-        epochs=50,
+        epochs=100,
         imgsz=640,
-        # Optional extras, e.g.:
-        # extra_args={"batch": 16, "device": 0, "workers": 4},
+        extra_args={
+            "batch": 8,      # lower than default to save RAM
+            "workers": 2,
+            "patience": 20,  # stop early if no improvement for 20 epochs
+        },
     )
     trainer.train()

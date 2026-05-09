@@ -316,7 +316,7 @@ def main(argv=None) -> int:
             if hasattr(agent_module, "ENV_SETTINGS"):
                 env_settings = {**env_settings, **agent_module.ENV_SETTINGS}
         else:
-            from submission_example_rllib import (
+            from submission_vector import (
                 CustomPredictFunction,
                 CustomWrapper,
                 CustomZombieDetectorFunction,
@@ -331,7 +331,7 @@ def main(argv=None) -> int:
         render_mode=render_mode,
         **env_settings,
     )
-    env = CustomWrapper(env)
+    env = CustomWrapper(env, inference_mode= True)
 
     if args.zombies:
         # Only evaluate the zombie detector

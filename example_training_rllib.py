@@ -8,19 +8,17 @@ Notice that this code will not learn properlu, as no preprocessing of the data n
 
 from pathlib import Path
 
+import numpy as np
 import pettingzoo
+import torch
 from ray.rllib.algorithms.ppo import PPOConfig
-from ray.rllib.algorithms.ppo.torch.ppo_torch_rl_module import PPOTorchRLModule
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
-from ray.rllib.env.wrappers.pettingzoo_env import PettingZooEnv, ParallelPettingZooEnv
+from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.rllib.examples.rl_modules.classes.random_rlm import RandomRLModule
 from ray.tune.registry import register_env
-import numpy as np
-import torch
 
+from submission_vector import CustomWrapper, VectorPPORLModule
 from utils import create_environment
-from submission import CustomWrapper
-
 
 
 def algo_config(id_env, policies, policies_to_train):
@@ -42,25 +40,27 @@ def algo_config(id_env, policies, policies_to_train):
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
-                    x: RLModuleSpec(module_class=PPOTorchRLModule, model_config={
-                                                                    "conv_filters": [
-                                                                        [32, 8, 4],
-                                                                        [64, 4, 2],
-                                                                        [64, 3, 1],
-                                                                    ],
-                                                                    "conv_activation": "relu",
-                                                                    "fcnet_hiddens": [512],
-                                                                    "fcnet_activation": "relu",
-                                                                })
+                    x: RLModuleSpec(module_class=VectorPPORLModule)
                     if x in policies_to_train
-                    else
-                    RLModuleSpec(module_class=RandomRLModule)
-                    for x in policies},
-            ))
+                    else RLModuleSpec(module_class=RandomRLModule)
+                    for x in policies
+                },
+            )
+        )
         .training(
-            train_batch_size=512,
+            model={
+                "fcnet_hiddens": [128, 128, 64],
+                "fcnet_activation": "relu",
+            },
+            train_batch_size=4000,
+            minibatch_size=512,
+            num_epochs=10,
             lr=1e-4,
             gamma=0.99,
+            lambda_=0.95,
+            clip_param=0.2,
+            vf_loss_coeff=0.5,
+            entropy_coeff=0.001,
         )
         .debugging(log_level="ERROR")
 
@@ -93,8 +93,7 @@ def training(env, checkpoint_path, max_iterations = 500):
         result.pop("config")
         if "env_runners" in result and "agent_episode_returns_mean" in result["env_runners"]:
             print(i, result["env_runners"]["agent_episode_returns_mean"])
-            if result["env_runners"]["agent_episode_returns_mean"]["archer_0"] > 5: # Or any early stopping criterion
-                break
+
         if i % 5 == 0:
             save_result = algo.save(checkpoint_path)
             path_to_checkpoint = save_result.checkpoint.path

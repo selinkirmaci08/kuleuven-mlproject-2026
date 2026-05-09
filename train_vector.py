@@ -117,6 +117,8 @@ def training(env, checkpoint_path, max_iterations=200):
     print("  Agents:", policies)
     print("=" * 60)
 
+    best_avg_reward = -float("inf")
+
     for i in range(max_iterations):
         result = algo.train()
         result.pop("config", None)
@@ -125,13 +127,20 @@ def training(env, checkpoint_path, max_iterations=200):
         if returns:
             r0 = returns.get("archer_0", float("nan"))
             r1 = returns.get("archer_1", float("nan"))
+            avg = (r0 + r1) / 2
             print(f"iter {i:03d} | archer_0: {r0:7.3f}  |  archer_1: {r1:7.3f}")
         else:
             print(f"iter {i:03d} | (no reward data yet)")
 
-        if i % 5 == 0:
-            save_result = algo.save(checkpoint_path)
-            print(f"         └─ checkpoint saved → {save_result.checkpoint.path}")
+        if i < 50:
+            if i % 5 == 0:
+                save_result = algo.save(checkpoint_path)
+                print(f"         └─  {avg:.3f} — checkpoint saved → {save_result.checkpoint.path}")
+        else:
+            if avg > best_avg_reward:
+                best_avg_reward = avg
+                save_result = algo.save(checkpoint_path)
+                print(f"         └─ NEW BEST {avg:.3f} — checkpoint saved → {save_result.checkpoint.path}")
 
     print("=" * 60)
     save_result = algo.save(checkpoint_path)
