@@ -209,7 +209,7 @@ class CustomWrapper(BaseWrapper):
     inference_mode=True  (evaluation): YOLO on pixels, real pipeline
     """
 
-    def __init__(self, env, inference_mode: bool = False):
+    def __init__(self, env, inference_mode: bool = True):
         self._unwrapped         = env
         self._raw_env           = env
         self._inference_mode    = inference_mode
