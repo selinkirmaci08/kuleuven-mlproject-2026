@@ -268,11 +268,12 @@ class RewardWrapper(BaseWrapper):
     Wrap AFTER CustomWrapper so observations are already vectorised.
     """
 
-    W_KILL      =  1.0   # default KAZ kill reward (pass through)
-    W_ALIGN     =  0.01  # bonus for facing a close zombie
-    W_DANGER    = -0.03  # penalty when a zombie is very close to archer
-    W_BOTTOM    = -0.05  # penalty when a zombie is close to the bottom
-    W_SURVIVAL  =  0.001 # small reward just for being alive each step
+    W_KILL = 1.0  # default KAZ kill reward (pass through)
+    W_ALIGN = 0  # bonus for facing a close zombie
+    W_BAD_SHOT = 0  # penalty for shooting when not aligned
+    W_DANGER = -0.005  # penalty when a zombie is very close
+    W_SURVIVAL = 0.001  # small reward just for being alive each step
+    W_COORD = 0  # bonus when the OTHER archer gets a kill
 
     ALIGN_THRESHOLD = 0.75  # align > this = "facing zombie"
     DANGER_DIST     = 0.15  # dist < this  = "zombie too close to archer"
