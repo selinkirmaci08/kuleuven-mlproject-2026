@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 """
-train_vector.py — Training script for vector policy with relative observations.
+submission_vector.py  —  Vector policy with alignment + rotation direction + distance.
 
-Observation vector (24 floats):
-  [archer_0_x, archer_0_y, archer_0_dir_x, archer_0_dir_y,
-   z0_align_0, z0_dist_0, z1_align_0, z1_dist_0,
-   z2_align_0, z2_dist_0, z3_align_0, z3_dist_0,
-   archer_1_x, archer_1_y, archer_1_dir_x, archer_1_dir_y,
-   z0_align_1, z0_dist_1, z1_align_1, z1_dist_1,
-   z2_align_1, z2_dist_1, z3_align_1, z3_dist_1]
+Observation per archer (16 floats):
+  [x, y, dir_x, dir_y,                                    ← 4 absolute
+   z0_align, z0_cross, z0_dist, z1_align, z1_cross, z1_dist,  ← 3 per zombie (12 total)
+   z2_align, z2_cross, z2_dist, z3_align, z3_cross, z3_dist]
 
-align: 1.0 = zombie directly in front of archer (shoot now!)
-dist:  0.0 = zombie very close, 1.0 = far away
+  align: 1.0 = zombie directly in front → shoot now
+  cross: 1.0 = rotate LEFT, 0.0 = rotate RIGHT, 0.5 = no rotation needed
+  dist:  0.0 = very close, 1.0 = far away
 
-Uses OLD RLlib API stack. Sprite rects during training (fast, perfect).
+  Zombies sorted by distance ascending — slot 0 is always the closest threat.
+
+Total observation: 32 floats (16 per archer, own perspective first)
 """
 
 from pathlib import Path
@@ -28,13 +28,13 @@ import numpy as np
 import torch
 
 from utils import create_environment
-from submission_vector import CustomWrapper, unwrap_to_raw
+from submission_vector import CustomWrapper, unwrap_to_raw, RewardWrapper
 
 
 def make_env():
-    """Factory — each Ray worker gets its own env. Uses sprite rects (fast)."""
     env = create_environment()
     env = CustomWrapper(env, inference_mode=False)
+    env = RewardWrapper(env)
     return ParallelPettingZooEnv(pettingzoo.utils.conversions.aec_to_parallel(env))
 
 
@@ -62,11 +62,11 @@ def algo_config(id_env, policies, policies_to_train):
             minibatch_size=512,
             num_sgd_iter=5,
             lr=3e-4,
-            gamma=0.99,
+            gamma=0.999,
             lambda_=0.95,
             clip_param=0.2,
             vf_loss_coeff=0.5,
-            entropy_coeff=0.01,   # higher entropy to encourage shooting
+            entropy_coeff=0.01,
         )
         .debugging(log_level="ERROR")
     )
@@ -97,14 +97,15 @@ def training(env, checkpoint_path, max_iterations=500):
     test_obs = check_env.observe(check_env.agents[0])
     raw      = unwrap_to_raw(check_env)
 
-    print("\n[SANITY CHECK] Observation after 50 steps (24 floats):")
+    print("\n[SANITY CHECK] Observation after 50 steps (32 floats):")
     print(f"  archer_0  x={test_obs[0]:.3f}  y={test_obs[1]:.3f}  "
           f"dir_x={test_obs[2]:.3f}  dir_y={test_obs[3]:.3f}")
     for slot in range(4):
-        align = test_obs[4 + slot*2]
-        dist  = test_obs[4 + slot*2 + 1]
-        print(f"  zombie_{slot} (rel to archer_0)  align={align:.3f}  dist={dist:.3f}")
-    print(f"  archer_1  x={test_obs[12]:.3f}  y={test_obs[13]:.3f}  "
+        align = test_obs[4 + slot * 3]
+        cross = test_obs[4 + slot * 3 + 1]
+        dist = test_obs[4 + slot * 3 + 2]
+        print(f"  zombie_{slot} (rel to archer_0)  align={align:.3f}  cross={cross:.3f}  dist={dist:.3f}")
+        print(f"  archer_1  x={test_obs[12]:.3f}  y={test_obs[13]:.3f}  "
           f"dir_x={test_obs[14]:.3f}  dir_y={test_obs[15]:.3f}")
     if hasattr(raw, "zombie_list"):
         print(f"  [raw] zombie count: {len(list(raw.zombie_list))}")
@@ -113,7 +114,7 @@ def training(env, checkpoint_path, max_iterations=500):
 
     print("\n" + "=" * 60)
     print("  Vector policy training — KAZ")
-    print("  Observation: 24 floats (abs pos + relative zombie alignment)")
+    print("  Observation: 32 floats")
     print("  Agents:", policies)
     print("=" * 60)
 

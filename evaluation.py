@@ -331,7 +331,7 @@ def main(argv=None) -> int:
         render_mode=render_mode,
         **env_settings,
     )
-    env = CustomWrapper(env, inference_mode= True)
+    env = CustomWrapper(env)
 
     if args.zombies:
         # Only evaluate the zombie detector
