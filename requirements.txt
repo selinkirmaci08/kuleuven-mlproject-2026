@@ -12,5 +12,8 @@ stable-baselines3
 matplotlib
 pillow
 
+# YOLO
+ultralytics
+
 # dvc for PPO training collaboration
 dvc[gdrive]
