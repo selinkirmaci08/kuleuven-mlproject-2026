@@ -1,0 +1,40 @@
+
+---------------------- DEPARTMENT COMPUTERS ----------------------
+Training:
+- Date: 11/5 16:38
+- Iterations: 130
+- BEST achieved at iteration: 130
+iter 239 | archer_0:  53.960  |  archer_1:  51.770
+         └─ NEW BEST 52.865
+- YOLO: False
+- Distance to bottom: True
+- Sorting: True
+- Vesion 2 (refer to Selins notebook)
+version 2: entropy = 0.1,batch size =8000, 
+added distance of the ghost to the bottom to the observation space, 
+sorted the zombies according to distance to bottom, reward shaping: 
+(dist to bottom + dist to archers), added noise to the positions of 
+the zombies(sometimes we send no positions)
+- 102p
+
+---------------------- OTHER VERSIONS ----------------------
+Training:
+- Date: 11/5 11:38
+- Iterations: 250
+- BEST achieved at iteration: 329
+iter 239 | archer_0:  53.960  |  archer_1:  51.770
+         └─ NEW BEST 52.865
+- YOLO: False
+- Distance to bottom: False
+- Sorting: False
+
+
+Evaluation Results:
+- Total episodes: 5
+- Avg reward: 42.40
+- Avg reward per agent:
+  archer_0: 22.80
+  archer_1: 19.60
+- Avg episode length: 1850.2 steps
+- Total evaluation time: 192.61 seconds
+- Time per episode: 38.52 seconds

@@ -1,20 +1,28 @@
 """
-submission_vector.py  —  Vector policy with alignment + rotation direction.
+submission_vector.py  —  Vector policy with alignment + rotation direction + distance + dist_to_bottom.
 
-Observation per archer (12 floats):
-  [x, y, dir_x, dir_y,                          ← 4 absolute
-   z0_align, z0_cross, z1_align, z1_cross,       ← 2 per zombie (8 total)
-   z2_align, z2_cross, z3_align, z3_cross]
+Observation per archer (20 floats):
+  [x, y, dir_x, dir_y,                                                ← 4 absolute
+   z0_align, z0_cross, z0_dist, z0_dist_to_bottom,                   ← 4 per zombie (16 total)
+   z1_align, z1_cross, z1_dist, z1_dist_to_bottom,
+   z2_align, z2_cross, z2_dist, z2_dist_to_bottom,
+   z3_align, z3_cross, z3_dist, z3_dist_to_bottom]
 
-  align: 1.0 = zombie directly in front → shoot now
-         0.5 = zombie to the side
-         0.0 = zombie directly behind
+  align:          1.0 = zombie directly in front → shoot now
+                  0.5 = zombie to the side
+                  0.0 = zombie directly behind
 
-  cross: 1.0 = zombie is to the LEFT  → rotate left to face it
-         0.5 = zombie is directly ahead/behind (no rotation needed)
-         0.0 = zombie is to the RIGHT → rotate right to face it
+  cross:          1.0 = zombie is to the LEFT  → rotate left to face it
+                  0.5 = zombie is directly ahead/behind (no rotation needed)
+                  0.0 = zombie is to the RIGHT → rotate right to face it
 
-Total observation: 24 floats (12 per archer, own perspective first)
+  dist:           0.0 = very close to archer, 1.0 = far from archer
+
+  dist_to_bottom: 0.0 = zombie at top (safe), 1.0 = zombie at bottom (danger!)
+
+  Zombies sorted by dist_to_bottom descending — slot 0 = most dangerous.
+
+Total observation: 40 floats (20 per archer, own perspective first)
 """
 
 from pathlib import Path
@@ -38,11 +46,12 @@ ENV_SETTINGS = {
 SCREEN_W, SCREEN_H = 1280, 720
 MAX_ZOMBIES        = 4
 ARCHER_ABS_DIM     = 4                    # x, y, dir_x, dir_y
-ZOMBIE_REL_DIM     = MAX_ZOMBIES * 2      # align, cross per zombie
-PER_ARCHER_DIM     = ARCHER_ABS_DIM + ZOMBIE_REL_DIM   # 12
-VEC_DIM            = PER_ARCHER_DIM * 2  # 24 total
+ZOMBIE_REL_DIM     = MAX_ZOMBIES * 4      # align, cross, dist, dist_to_bottom per zombie
+PER_ARCHER_DIM     = ARCHER_ABS_DIM + ZOMBIE_REL_DIM   # 20
+VEC_DIM            = PER_ARCHER_DIM * 2  # 40 total
 NUM_ACTIONS        = 6
 NUM_ARCHERS        = 2
+SCREEN_DIAG        = (1.0**2 + 1.0**2) ** 0.5  # diagonal of normalised unit square
 
 _DIR            = os.path.dirname(os.path.abspath(__file__))
 YOLO_WEIGHTS    = os.path.join(_DIR, "runs", "detect", "train", "weights", "best.pt")
@@ -86,18 +95,13 @@ def unwrap_to_raw(env):
 def get_observation_for_archer(env, archer_idx: int,
                                 zombie_positions: list) -> np.ndarray:
     """
-    Build 12-float observation for one archer.
+    Build 20-float observation for one archer.
 
     For each zombie:
-      align = dot(facing, zombie_dir)  normalised to [0,1]
-              1.0 = zombie directly in front → shoot
-      cross = cross(facing, zombie_dir) normalised to [0,1]
-              1.0 = rotate LEFT to face zombie
-              0.0 = rotate RIGHT to face zombie
-              0.5 = zombie is ahead or behind (no rotation needed)
-
-    Together align+cross give the policy both WHEN to shoot and
-    WHICH WAY to rotate to face the zombie.
+      align          = dot(facing, zombie_dir)  normalised to [0,1]
+      cross          = cross(facing, zombie_dir) normalised to [0,1]
+      dist           = distance to archer normalised by screen diagonal
+      dist_to_bottom = zombie y position (0.0=top/safe, 1.0=bottom/danger)
     """
     vec = np.zeros(PER_ARCHER_DIM, dtype=np.float32)
     raw = unwrap_to_raw(env)
@@ -107,7 +111,6 @@ def get_observation_for_archer(env, archer_idx: int,
 
     archer_list = list(raw.archer_list)
 
-    # Archer might have died — return zeros
     if archer_idx >= len(archer_list):
         return vec
 
@@ -119,50 +122,45 @@ def get_observation_for_archer(env, archer_idx: int,
     r  = archer.rect
     ax = (r.x + r.width  / 2) / SCREEN_W
     ay = (r.y + r.height / 2) / SCREEN_H
-    dx = float(archer.direction.x)   # unit vector, already normalised
+    dx = float(archer.direction.x)
     dy = float(archer.direction.y)
 
-    # Absolute archer position + direction
     vec[0] = np.clip(ax, 0.0, 1.0)
     vec[1] = np.clip(ay, 0.0, 1.0)
-    vec[2] = (dx + 1.0) / 2.0   # normalise [-1,1] → [0,1]
+    vec[2] = (dx + 1.0) / 2.0
     vec[3] = (dy + 1.0) / 2.0
 
-    # Relative zombie signals
     for slot, (zx, zy) in enumerate(zombie_positions[:MAX_ZOMBIES]):
         rel_x = zx - ax
         rel_y = zy - ay
 
-        # Distance — normalise by screen diagonal
         dist = (rel_x**2 + rel_y**2) ** 0.5
 
-        # Normalise relative direction to unit vector
         if dist > 1e-6:
             norm_x = rel_x / dist
             norm_y = rel_y / dist
         else:
             norm_x, norm_y = 0.0, 0.0
 
-        # Dot product — alignment (how directly in front is the zombie)
-        # dx,dy is already a unit vector so dot is in [-1, 1]
         dot   = norm_x * dx + norm_y * dy
         align = np.clip((dot + 1.0) / 2.0, 0.0, 1.0)
 
-        # Cross product — rotation direction needed
-        # cross > 0: zombie is to the LEFT  → rotate left (action 1)
-        # cross < 0: zombie is to the RIGHT → rotate right (action 2)
-        # cross = 0: zombie is ahead or behind
         cross      = norm_x * dy - norm_y * dx
         cross_norm = np.clip((cross + 1.0) / 2.0, 0.0, 1.0)
 
-        vec[ARCHER_ABS_DIM + slot*2]   = align
-        vec[ARCHER_ABS_DIM + slot*2+1] = cross_norm
+        dist_norm      = np.clip(dist / SCREEN_DIAG, 0.0, 1.0)
+        dist_to_bottom = np.clip(zy, 0.0, 1.0)  # 0=top (safe), 1=bottom (danger)
+
+        base = ARCHER_ABS_DIM + slot * 4
+        vec[base]   = align
+        vec[base+1] = cross_norm
+        vec[base+2] = dist_norm
+        vec[base+3] = dist_to_bottom
 
     return vec
 
 
 def get_zombie_positions_from_sprites(env) -> list:
-    """Sprite rect zombie positions — TRAINING only."""
     positions = []
     raw = unwrap_to_raw(env)
     if not hasattr(raw, "zombie_list"):
@@ -172,11 +170,15 @@ def get_zombie_positions_from_sprites(env) -> list:
         cx = np.clip((r.x + r.width  / 2) / SCREEN_W, 0.0, 1.0)
         cy = np.clip((r.y + r.height / 2) / SCREEN_H, 0.0, 1.0)
         positions.append((cx, cy))
+    positions.sort(key=lambda p: p[1], reverse=True)
+    # randomly drop all zombies 5% of steps to simulate YOLO failures
+    if np.random.random() < 0.05:
+        return []
     return positions
 
 
 def get_zombie_positions_yolo(raw_obs: np.ndarray) -> list:
-    """YOLO zombie positions — INFERENCE only."""
+    """YOLO zombie positions — INFERENCE only. Sorted by dist_to_bottom descending."""
     positions = []
     model = get_yolo_model()
     if model is None:
@@ -194,6 +196,7 @@ def get_zombie_positions_yolo(raw_obs: np.ndarray) -> list:
             positions.append((cx, cy))
     except Exception as e:
         print(f"[VectorPolicy] YOLO error: {e}")
+    positions.sort(key=lambda p: p[1], reverse=True)  # slot 0 = closest to bottom
     return positions
 
 
@@ -201,13 +204,13 @@ def get_zombie_positions_yolo(raw_obs: np.ndarray) -> list:
 
 class CustomWrapper(BaseWrapper):
     """
-    Returns 24-float observation — each archer sees from its own perspective first.
+    Returns 40-float observation — each archer sees from its own perspective first.
 
     inference_mode=False (training):  sprite rects, fast and exact
     inference_mode=True  (evaluation): YOLO on pixels, real pipeline
     """
 
-    def __init__(self, env, inference_mode: bool = False):
+    def __init__(self, env, inference_mode: bool = True):
         self._unwrapped         = env
         self._raw_env           = env
         self._inference_mode    = inference_mode
@@ -235,17 +238,54 @@ class CustomWrapper(BaseWrapper):
         obs_archer0 = get_observation_for_archer(self._unwrapped, 0, zombie_pos)
         obs_archer1 = get_observation_for_archer(self._unwrapped, 1, zombie_pos)
 
-        # Each archer sees its own perspective first
         if agent == "archer_0":
             return np.concatenate([obs_archer0, obs_archer1])
         else:
             return np.concatenate([obs_archer1, obs_archer0])
 
 
+# ── Reward wrapper (training only) ───────────────────────────────────────────
+
+class RewardWrapper(BaseWrapper):
+    """
+    Shaped reward on top of KAZ defaults.
+    Wrap AFTER CustomWrapper — only used during training, never during eval.
+    """
+
+    W_KILL    = 1.0   # base kill reward passthrough
+    W_URGENCY = 0.02  # bonus for zombie close to bottom AND close to archer
+
+    def __init__(self, env):
+        super().__init__(env)
+
+    def _parse_obs(self, obs):
+        """Read slot 0 (most dangerous zombie) from own observation."""
+        dist_to_archer = obs[6]  # z0_dist
+        dist_to_bottom = obs[7]  # z0_dist_to_bottom
+        return dist_to_archer, dist_to_bottom
+
+    def reward(self, agent):
+        base_reward = self.env.reward(agent)
+
+        if base_reward > 0:
+            print(f"[KILL] {agent} killed a zombie! base={base_reward:.3f}")
+
+        obs = self.observe(agent)
+        dist_to_archer, dist_to_bottom = self._parse_obs(obs)
+
+        shaped = base_reward * self.W_KILL
+
+        # urgency bonus — only meaningful when zombie is both near bottom AND near archer
+        urgency = dist_to_bottom * (1.0 - dist_to_archer)
+        shaped += self.W_URGENCY * urgency
+
+        return shaped
+
+
 # ── Pure PyTorch policy network ───────────────────────────────────────────────
 
 class PolicyNet(nn.Module):
-    """MLP matching fcnet_hiddens=[128,128,64]. Input: 24. Output: 6."""
+    """MLP matching fcnet_hiddens=[128,128,64]. Input: 40. Output: 6."""
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
@@ -260,19 +300,17 @@ class PolicyNet(nn.Module):
 
 
 def _load_policy_weights(checkpoint_path: str, policy_id: str) -> PolicyNet:
-    """Load weights from RLlib old-API checkpoint into PolicyNet."""
-    import pickle, os
+    """Load weights from a plain .pt file saved by extract_weights.py."""
+    import os
 
-    policy_state_path = os.path.join(
-        checkpoint_path, "policies", policy_id, "policy_state.pkl"
-    )
-    if not os.path.exists(policy_state_path):
-        raise FileNotFoundError(f"Policy state not found at {policy_state_path}")
+    pt_path = os.path.join(checkpoint_path, f"{policy_id}_weights.pt")
+    if not os.path.exists(pt_path):
+        raise FileNotFoundError(
+            f"Weight file not found: {pt_path}\n"
+            f"Run extract_weights.py locally first to generate it."
+        )
 
-    with open(policy_state_path, "rb") as f:
-        policy_state = pickle.load(f)
-
-    weights = policy_state.get("weights", {})
+    weights = torch.load(pt_path, map_location="cpu", weights_only=False)
     net     = PolicyNet()
     state   = net.state_dict()
 
@@ -294,8 +332,8 @@ def _load_policy_weights(checkpoint_path: str, policy_id: str) -> PolicyNet:
             loaded += 1
 
     if loaded == 0:
-        print(f"[WARNING] No weights matched. Keys: {list(weights.keys())[:5]}")
-        raise RuntimeError("Could not map weights from checkpoint to PolicyNet.")
+        print(f"[WARNING] No weights matched. Available keys: {list(weights.keys())[:8]}")
+        raise RuntimeError(f"Could not map any weights for {policy_id}.")
 
     print(f"[PolicyNet] Loaded {loaded}/8 weight tensors for {policy_id}")
     net.load_state_dict(state)
