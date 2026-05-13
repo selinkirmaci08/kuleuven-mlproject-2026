@@ -2,18 +2,25 @@
 submission_vector.py  —  Vector policy with alignment + rotation direction + distance + dist_to_bottom.
 
 Observation per archer (20 floats):
-  [x, y, dir_x, dir_y,                                                      ← 4 absolute
-   z0_align, z0_cross, z0_dist, z0_dist_to_bottom,                          ← 4 per zombie (16 total)
+  [x, y, dir_x, dir_y,                                                ← 4 absolute
+   z0_align, z0_cross, z0_dist, z0_dist_to_bottom,                   ← 4 per zombie (16 total)
    z1_align, z1_cross, z1_dist, z1_dist_to_bottom,
    z2_align, z2_cross, z2_dist, z2_dist_to_bottom,
    z3_align, z3_cross, z3_dist, z3_dist_to_bottom]
 
   align:          1.0 = zombie directly in front → shoot now
-  cross:          1.0 = rotate LEFT, 0.0 = rotate RIGHT, 0.5 = no rotation needed
+                  0.5 = zombie to the side
+                  0.0 = zombie directly behind
+
+  cross:          1.0 = zombie is to the LEFT  → rotate left to face it
+                  0.5 = zombie is directly ahead/behind (no rotation needed)
+                  0.0 = zombie is to the RIGHT → rotate right to face it
+
   dist:           0.0 = very close to archer, 1.0 = far from archer
+
   dist_to_bottom: 0.0 = zombie at top (safe), 1.0 = zombie at bottom (danger!)
 
-  Zombies sorted by distance ascending — slot 0 is always the closest threat.
+  Zombies sorted by dist_to_bottom descending — slot 0 = most dangerous.
 
 Total observation: 40 floats (20 per archer, own perspective first)
 """
@@ -49,6 +56,7 @@ SCREEN_DIAG        = (1.0**2 + 1.0**2) ** 0.5  # diagonal of normalised unit squ
 _DIR            = os.path.dirname(os.path.abspath(__file__))
 YOLO_WEIGHTS    = os.path.join(_DIR, "runs", "detect", "train", "weights", "best.pt")
 CHECKPOINT_PATH = os.path.join(_DIR, "results_vector")
+
 
 # ── YOLO singleton ────────────────────────────────────────────────────────────
 
@@ -89,17 +97,11 @@ def get_observation_for_archer(env, archer_idx: int,
     """
     Build 20-float observation for one archer.
 
-    For each zombie (sorted by distance, slot 0 = closest):
+    For each zombie:
       align          = dot(facing, zombie_dir)  normalised to [0,1]
-                       1.0 = zombie directly in front → shoot
       cross          = cross(facing, zombie_dir) normalised to [0,1]
-                       1.0 = rotate LEFT to face zombie
-                       0.0 = rotate RIGHT to face zombie
-                       0.5 = zombie is ahead or behind (no rotation needed)
       dist           = distance to archer normalised by screen diagonal
-                       0.0 = very close, 1.0 = far away
-      dist_to_bottom = zombie y position (already normalised)
-                       0.0 = zombie at top (safe), 1.0 = zombie at bottom (danger!)
+      dist_to_bottom = zombie y position (0.0=top/safe, 1.0=bottom/danger)
     """
     vec = np.zeros(PER_ARCHER_DIM, dtype=np.float32)
     raw = unwrap_to_raw(env)
@@ -147,9 +149,9 @@ def get_observation_for_archer(env, archer_idx: int,
         cross_norm = np.clip((cross + 1.0) / 2.0, 0.0, 1.0)
 
         dist_norm      = np.clip(dist / SCREEN_DIAG, 0.0, 1.0)
-        dist_to_bottom = np.clip(zy, 0.0, 1.0)  # 0.0 = top (safe), 1.0 = bottom (danger)
+        dist_to_bottom = np.clip(zy, 0.0, 1.0)  # 0=top (safe), 1=bottom (danger)
 
-        base = ARCHER_ABS_DIM + slot * 4  # 4 floats per zombie now
+        base = ARCHER_ABS_DIM + slot * 4
         vec[base]   = align
         vec[base+1] = cross_norm
         vec[base+2] = dist_norm
@@ -158,25 +160,25 @@ def get_observation_for_archer(env, archer_idx: int,
     return vec
 
 
-def get_zombie_positions_from_sprites(env, archer_pos=None) -> list:
-    """Sprite rect zombie positions — TRAINING only. Sorted by distance to archer."""
+def get_zombie_positions_from_sprites(env) -> list:
     positions = []
     raw = unwrap_to_raw(env)
     if not hasattr(raw, "zombie_list"):
         return positions
-    for zombie in list(raw.zombie_list):
+    for zombie in list(raw.zombie_list)[:MAX_ZOMBIES]:
         r = zombie.rect
         cx = np.clip((r.x + r.width  / 2) / SCREEN_W, 0.0, 1.0)
         cy = np.clip((r.y + r.height / 2) / SCREEN_H, 0.0, 1.0)
         positions.append((cx, cy))
-    if archer_pos is not None:
-        ax, ay = archer_pos
-        positions.sort(key=lambda p: (p[0]-ax)**2 + (p[1]-ay)**2)
-    return positions[:MAX_ZOMBIES]
+    positions.sort(key=lambda p: p[1], reverse=True)
+    # randomly drop all zombies 5% of steps to simulate YOLO failures
+    if np.random.random() < 0.05:
+        return []
+    return positions
 
 
-def get_zombie_positions_yolo(raw_obs: np.ndarray, archer_pos=None) -> list:
-    """YOLO zombie positions — INFERENCE only. Sorted by distance to archer."""
+def get_zombie_positions_yolo(raw_obs: np.ndarray) -> list:
+    """YOLO zombie positions — INFERENCE only. Sorted by dist_to_bottom descending."""
     positions = []
     model = get_yolo_model()
     if model is None:
@@ -194,9 +196,7 @@ def get_zombie_positions_yolo(raw_obs: np.ndarray, archer_pos=None) -> list:
             positions.append((cx, cy))
     except Exception as e:
         print(f"[VectorPolicy] YOLO error: {e}")
-    if archer_pos is not None:
-        ax, ay = archer_pos
-        positions.sort(key=lambda p: (p[0]-ax)**2 + (p[1]-ay)**2)
+    positions.sort(key=lambda p: p[1], reverse=True)  # slot 0 = closest to bottom
     return positions
 
 
@@ -221,80 +221,48 @@ class CustomWrapper(BaseWrapper):
     def observation_space(self, agent: AgentID) -> spaces.Space:
         return spaces.Box(low=0.0, high=1.0, shape=(VEC_DIM,), dtype=np.float32)
 
-    def _get_archer_pos(self, archer_idx: int):
-        """Return normalised (cx, cy) for an archer, or None if unavailable."""
-        raw = unwrap_to_raw(self._unwrapped)
-        if not hasattr(raw, "archer_list"):
-            return None
-        archer_list = list(raw.archer_list)
-        if archer_idx >= len(archer_list):
-            return None
-        r = archer_list[archer_idx].rect
-        return ((r.x + r.width  / 2) / SCREEN_W,
-                (r.y + r.height / 2) / SCREEN_H)
-
-    def _get_zombie_positions(self, agent: AgentID, archer_pos) -> list:
+    def _get_zombie_positions(self, agent: AgentID) -> list:
         if self._inference_mode:
             raw = unwrap_to_raw(self._unwrapped)
             current_step = getattr(raw, "frames", self._cache_step + 1)
             if current_step != self._cache_step:
                 raw_obs = self._raw_env.observe(agent)
-                self._cached_zombie_pos = get_zombie_positions_yolo(raw_obs, archer_pos)
+                self._cached_zombie_pos = get_zombie_positions_yolo(raw_obs)
                 self._cache_step = current_step
             return self._cached_zombie_pos
         else:
-            return get_zombie_positions_from_sprites(self._unwrapped, archer_pos)
+            return get_zombie_positions_from_sprites(self._unwrapped)
 
     def observe(self, agent: AgentID) -> ObsType:
-        own_idx   = 0 if agent == "archer_0" else 1
-        other_idx = 1 - own_idx
+        zombie_pos  = self._get_zombie_positions(agent)
+        obs_archer0 = get_observation_for_archer(self._unwrapped, 0, zombie_pos)
+        obs_archer1 = get_observation_for_archer(self._unwrapped, 1, zombie_pos)
 
-        own_pos   = self._get_archer_pos(own_idx)
-        other_pos = self._get_archer_pos(other_idx)
+        if agent == "archer_0":
+            return np.concatenate([obs_archer0, obs_archer1])
+        else:
+            return np.concatenate([obs_archer1, obs_archer0])
 
-        # Each archer gets zombies sorted by THEIR OWN distance
-        zombie_pos_own   = self._get_zombie_positions(agent, own_pos)
-        zombie_pos_other = self._get_zombie_positions(agent, other_pos)
 
-        obs_own   = get_observation_for_archer(self._unwrapped, own_idx,   zombie_pos_own)
-        obs_other = get_observation_for_archer(self._unwrapped, other_idx, zombie_pos_other)
-
-        return np.concatenate([obs_own, obs_other])
-
+# ── Reward wrapper (training only) ───────────────────────────────────────────
 
 class RewardWrapper(BaseWrapper):
     """
     Shaped reward on top of KAZ defaults.
-    Wrap AFTER CustomWrapper so observations are already vectorised.
+    Wrap AFTER CustomWrapper — only used during training, never during eval.
     """
 
-    W_KILL = 1.0  # default KAZ kill reward (pass through)
-    W_ALIGN = 0  # bonus for facing a close zombie
-    W_BAD_SHOT = 0  # penalty for shooting when not aligned
-    W_DANGER = -0.005  # penalty when a zombie is very close
-    W_SURVIVAL = 0.001  # small reward just for being alive each step
-    W_COORD = 0  # bonus when the OTHER archer gets a kill
-
-    ALIGN_THRESHOLD = 0.75  # align > this = "facing zombie"
-    DANGER_DIST     = 0.15  # dist < this  = "zombie too close to archer"
-    BOTTOM_THRESH   = 0.75  # dist_to_bottom > this = "zombie near bottom"
+    W_KILL    = 1.0   # base kill reward passthrough
+    W_URGENCY = 0.02  # bonus for zombie close to bottom AND close to archer
 
     def __init__(self, env):
         super().__init__(env)
-        self._last_action = {}
-
-    def step(self, action):
-        agent = self.agent_selection
-        self._last_action[agent] = action
-        super().step(action)
 
     def _parse_obs(self, obs):
-        """Extract useful values from slot 0 (closest zombie) of own observation."""
-        align          = obs[4]
-        cross          = obs[5]
-        dist           = obs[6]
-        dist_to_bottom = obs[7]
-        return align, cross, dist, dist_to_bottom
+        """Read slot 0 (most dangerous zombie) from own observation."""
+        dist_to_archer = obs[6]  # z0_dist
+        dist_to_bottom = obs[7]  # z0_dist_to_bottom
+        return dist_to_archer, dist_to_bottom
 
     def reward(self, agent):
         base_reward = self.env.reward(agent)
@@ -303,30 +271,13 @@ class RewardWrapper(BaseWrapper):
             print(f"[KILL] {agent} killed a zombie! base={base_reward:.3f}")
 
         obs = self.observe(agent)
-        align, cross, dist, dist_to_bottom = self._parse_obs(obs)
+        dist_to_archer, dist_to_bottom = self._parse_obs(obs)
 
         shaped = base_reward * self.W_KILL
 
-        # Survival bonus
-        shaped += self.W_SURVIVAL
-
-        # Facing bonus: only when zombie is also close to archer
-        if align > self.ALIGN_THRESHOLD and dist < 0.4:
-            shaped += self.W_ALIGN * align
-
-        # Danger penalty: zombie very close to archer
-        if dist < self.DANGER_DIST:
-            shaped += self.W_DANGER * (1.0 - dist / self.DANGER_DIST)
-
-        # Bottom penalty: zombie close to bottom of screen (near game-over)
-        if dist_to_bottom > self.BOTTOM_THRESH:
-            shaped += self.W_BOTTOM * ((dist_to_bottom - self.BOTTOM_THRESH) / (1.0 - self.BOTTOM_THRESH))
-
-        # Bad shot penalty: uses action stored from step()
-        SHOOT_ACTION = 5
-        action = self._last_action.get(agent, -1)
-        if action == SHOOT_ACTION and align < 0.5:
-            shaped += -0.01
+        # urgency bonus — only meaningful when zombie is both near bottom AND near archer
+        urgency = dist_to_bottom * (1.0 - dist_to_archer)
+        shaped += self.W_URGENCY * urgency
 
         return shaped
 
@@ -338,7 +289,7 @@ class PolicyNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(VEC_DIM, 128), nn.ReLU(),  # VEC_DIM = 40
+            nn.Linear(VEC_DIM, 128), nn.ReLU(),
             nn.Linear(128,     128), nn.ReLU(),
             nn.Linear(128,      64), nn.ReLU(),
             nn.Linear(64, NUM_ACTIONS),

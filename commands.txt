@@ -1,0 +1,16 @@
+scp current_version.txt aalst.student.cs.kuleuven.be:/cw/lvs/NoCsBack/vakken/H0T25A/ml-project/students/r1087547
+
+scp submission.py aalst.student.cs.kuleuven.be:/cw/lvs/NoCsBack/vakken/H0T25A/ml-project/students/r1087547
+
+scp -r results_vector aalst.student.cs.kuleuven.be:/cw/lvs/NoCsBack/vakken/H0T25A/ml-project/students/r1087547
+
+
+scp aalst.student.cs.kuleuven.be:/cw/lvs/NoCsBack/vakken/H0T25A/ml-project/tournament_runs/tournament_20260512/tournament_results.jsonl ./
+
+KMK_USER=r1087547 /Users/martuky/Downloads/kmk-darwin-arm64
+ssh aalst.student.cs.kuleuven.be
+
+
+cd /cw/lvs/NoCsBack/vakken/H0T25A/ml-project/students/r1087547/
+
+cd  /cw/lvs/NoCsBack/vakken/H0T25A/ml-project/tournament_runs/tournament_202605__
