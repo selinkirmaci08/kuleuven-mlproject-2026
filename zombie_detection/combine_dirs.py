@@ -15,7 +15,7 @@ import random
 from pathlib import Path
 
 # ── Config ────────────────────────────────────────────────────────────────────
-COMBINED_DIR = "dataset/combined"
+COMBINED_DIR = "../dataset/combined"
 VAL_SPLIT    = 0.10   # 5% validation
 SEED         = 42
 

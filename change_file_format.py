@@ -1,7 +1,7 @@
 # extract_weights.py  — run this LOCALLY, not on department machines
 import pickle, os, torch
 
-CHECKPOINT_PATH = "results_vector"  # your local path
+CHECKPOINT_PATH = "results_vector"
 
 def extract_and_save(checkpoint_path, policy_id):
     pkl_path = os.path.join(checkpoint_path, "policies", policy_id, "policy_state.pkl")

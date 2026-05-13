@@ -18,7 +18,7 @@ import torch
 import cv2
 from PIL import Image
 
-from train_zombie_cnn import ZombieCNN, INPUT_W, INPUT_H, HEAT_W, HEAT_H, find_peaks, MAX_ZOMBIES
+from testCode.train_zombie_cnn import ZombieCNN, INPUT_W, INPUT_H, find_peaks
 
 
 def load_model(model_path: str) -> ZombieCNN:
