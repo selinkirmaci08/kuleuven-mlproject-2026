@@ -287,6 +287,7 @@ for seed in range(8):
     )
     x = traj[:,0]
     y = traj[:,1]
+    
 
     plt.plot(x, y, linewidth=2)
 
