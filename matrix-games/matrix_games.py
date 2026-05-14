@@ -1,266 +1,438 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# matrix games
+
+# ============================================================
+# MATRIX GAMES
+# ============================================================
+
 games = {
     "stag_hunt": (
-        np.array([[1,  0  ],            # R1: Player 1 payoffs
-                  [2/3, 2/3]]),
-        np.array([[1,   2/3],           # R2: Player 2 payoffs
-                  [0,   2/3]])
+        np.array([
+            [1, 0],
+            [2/3, 2/3]
+        ]),
+        np.array([
+            [1, 2/3],
+            [0, 2/3]
+        ])
     ),
+
     "subsidy_game": (
-        np.array([[12,  0],             # R1: Player 1 payoffs
-                  [11, 10]]),
-        np.array([[12, 11],             # R2: Player 2 payoffs
-                  [ 0, 10]])
+        np.array([
+            [12, 0],
+            [11, 10]
+        ]),
+        np.array([
+            [12, 11],
+            [0, 10]
+        ])
     ),
+
     "prisoners_dilemma": (
-        np.array([[-1, -4],             # R1: Player 1 payoffs ✓
-                  [ 0, -3]]),
-        np.array([[-1,  0],             # R2: Player 2 payoffs ✓
-                  [-4, -3]])
+        np.array([
+            [-1, -4],
+            [0, -3]
+        ]),
+        np.array([
+            [-1, 0],
+            [-4, -3]
+        ])
     ),
+
     "biased_RPS": (
-        np.array([[ 0.00, -0.05,  0.25],  # R1: Player 1 payoffs
-                  [ 0.05,  0.00, -0.50],
-                  [-0.25,  0.50,  0.00]]),
-        np.array([[ 0.00,  0.05, -0.25],  # R2: Player 2 payoffs (negated, zero-sum)
-                  [-0.05,  0.00,  0.50],
-                  [ 0.25, -0.50,  0.00]])
+        np.array([
+            [0.00, -0.05, 0.25],
+            [0.05, 0.00, -0.50],
+            [-0.25, 0.50, 0.00]
+        ]),
+        np.array([
+            [0.00, 0.05, -0.25],
+            [-0.05, 0.00, 0.50],
+            [0.25, -0.50, 0.00]
+        ])
     ),
 }
-# e greedy q-learning (off policy TD)
-def qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, epsilon=0.1, seed=0):
-    print("perfoming qlearning")
-
-    nactions = reward_matrices[0].shape[0]
-    rng1 = np.random.default_rng(seed)
-    rng2 = np.random.default_rng(seed + 100)
-    Q1 = rng1.uniform(-0.1, 0.1, nactions)
-    Q2 = rng2.uniform(-0.1, 0.1, nactions)
 
 
-    avg_pi1 = np.zeros(nactions)
-    avg_pi2 = np.zeros(nactions)
-    hist1, hist2 = [], []
+# ============================================================
+# POLICY HELPERS
+# ============================================================
 
-    for episode in range(episodes):
-        #S = np.zeros()
-        # choose either greedy or random action
-        # define a tie breaking policy -> max function
+def epsilon_greedy_policy(Q, epsilon):
+    nA = len(Q)
 
-        # player 1
-        # choose random number between 0 and 1
-        random1 = rng1.random()
-        # print(random1)
-        if random1 < epsilon:
-            # random action
-            # print("choosing a random action for p2")
-            action_p1 = rng1.integers(0, nactions)
-            value_p1 = Q1[action_p1]
-        else:
-           #  print("choosing the best action for p2")
-            value_p1 = np.max(Q1)
-            action_p1 = np.argmax(Q1)
+    pi = np.ones(nA) * (epsilon / nA)
 
-        # player 2
-        # choose random number between 0 and 1
-        random2 = rng2.random()
-        # print(random2)
-        if random2 < epsilon:
-            # random action
-            # print("choosing a random action for p2")
-            action_p2 = rng2.integers(0, nactions)
-            value_p2 = Q2[action_p2]
-        else:
-            # print("choosing the best action for p2")
-            value_p2 = np.max(Q2)
-            action_p2 = np.argmax(Q2)
+    best_action = np.argmax(Q)
+    pi[best_action] += (1.0 - epsilon)
 
-        R1 = reward_matrices[0]
-        R2 = reward_matrices[1]
+    return pi
 
-        r1 = R1[action_p1, action_p2]
-        r2 = R2[action_p1, action_p2]
 
-        # update Q1
-        value_p1 = value_p1 + learning_rate * (r1 - value_p1)
-        Q1[action_p1] = value_p1
+def softmax_policy(Q, temperature):
+    logits = Q / max(temperature, 1e-8)
 
-        # update Q2
-        value_p2 = value_p2 + learning_rate * (r2 - value_p2)
-        Q2[action_p2] = value_p2
+    # numerical stability
+    logits -= np.max(logits)
 
-        avg_pi1 += (np.eye(nactions)[action_p1] - avg_pi1) / (episode+1)
-        avg_pi2 += (np.eye(nactions)[action_p2] - avg_pi2) / (episode+1)
+    exp_q = np.exp(logits)
 
-        if episode % 500 == 0:
-            hist1.append(avg_pi1.copy())
-            hist2.append(avg_pi2.copy())
+    return exp_q / np.sum(exp_q)
 
-    print("Q1:", Q1)
-    print("Q2:", Q2)
 
-    return np.array(hist1), np.array(hist2)
+# ============================================================
+# MOVING AVERAGE SMOOTHING
+# ============================================================
 
-def boltzmann_qlearning(reward_matrices, episodes=100_000, learning_rate=0.1, temperature=0.1, seed=0):
-    print("perfoming qlearning")
+def moving_average(history, window=100):
 
-    nactions = reward_matrices[0].shape[0]
-    rng1 = np.random.default_rng(seed)
-    rng2 = np.random.default_rng(seed + 100)
-    Q1 = rng1.uniform(-0.1, 0.1, nactions)
-    Q2 = rng2.uniform(-0.1, 0.1, nactions)
+    smoothed = np.zeros_like(history)
 
-    avg_pi1 = np.zeros(nactions)
-    avg_pi2 = np.zeros(nactions)
-    hist1, hist2 = [], []
+    for i in range(len(history)):
 
-    for episode in range(episodes):
-        # S = np.zeros()
-        # choose either greedy or random action
-        # define a tie breaking policy -> max function
+        start = max(0, i - window)
 
-        # player 1
-        # choose action according to highest probability
-        exp_q1 = np.exp(Q1 / temperature)
-        pi1 = exp_q1 / np.sum(exp_q1)
-        action_p1 = rng1.choice(nactions, p=pi1)
+        smoothed[i] = np.mean(history[start:i+1], axis=0)
 
-        # player 2
-        # choose action according to highest probability
-        exp_q2 = np.exp(Q2 / temperature)
-        pi2 = exp_q2 / np.sum(exp_q2)
-        action_p2 = rng2.choice(nactions, p=pi2)
+    return smoothed
 
-        R1 = reward_matrices[0]
-        R2 = reward_matrices[1]
 
-        r1 = R1[action_p1, action_p2]
-        r2 = R2[action_p1, action_p2]
+# ============================================================
+# EPSILON GREEDY Q-LEARNING
+# ============================================================
 
-        # update Q1
-        value_p1 = Q1[action_p1] + learning_rate * (r1 - Q1[action_p1])
-        Q1[action_p1] = value_p1
-
-        # update Q2
-        value_p2 = Q2[action_p2] + learning_rate * (r2 - Q2[action_p2])
-        Q2[action_p2] = value_p2
-
-        avg_pi1 += (np.eye(nactions)[action_p1] - avg_pi1) / (episode + 1)
-        avg_pi2 += (np.eye(nactions)[action_p2] - avg_pi2) / (episode + 1)
-
-        if episode % 500 == 0:
-            hist1.append(avg_pi1.copy())
-            hist2.append(avg_pi2.copy())
-
-    print("Q1:", Q1)
-    print("Q2:", Q2)
-
-    return np.array(hist1), np.array(hist2)
-
-# alpha = temperature multiplication coefficient
-# beta  = exponent coefficient
-# delta = temperature decay coefficient
-def lenient_boltzmann_qlearning(
-        reward_matrices, episodes = 100_000, learning_rate=0.1, maxTemp = 10.0, 
-        alpha = 0.1, beta = 1.0, delta = 0.999, seed =0
+def qlearning(
+    reward_matrices,
+    episodes=30000,
+    learning_rate=0.005,
+    epsilon=0.1,
+    save_every=10,
+    seed=0
 ):
-    nactions = reward_matrices[0].shape[0]
 
-    # initial settings
-    rng = np.random.default_rng(seed)
+    R1, R2 = reward_matrices
+
+    nactions = R1.shape[0]
+
+    rng1 = np.random.default_rng(seed)
+    rng2 = np.random.default_rng(seed + 100)
+
+    #Q1 = rng1.uniform(-0.1, 0.1, nactions)
+   # Q2 = rng2.uniform(-0.1, 0.1, nactions)
     
-    # utilities (Q values)
-    U1 = rng.uniform(0,0.001, nactions)
-    U2 = rng.uniform(0,0.001, nactions)
+    Q1 = rng1.uniform(-2.0, 2.0, nactions)
+    Q2 = rng2.uniform(-2.0, 2.0, nactions)
+
+    policy_history1 = []
+    policy_history2 = []
+
+    for episode in range(episodes):
+
+        # current policies
+        pi1 = epsilon_greedy_policy(Q1, epsilon)
+        pi2 = epsilon_greedy_policy(Q2, epsilon)
+
+        # sample actions
+        a1 = rng1.choice(nactions, p=pi1)
+        a2 = rng2.choice(nactions, p=pi2)
+
+        # rewards
+        #r1 = R1[a1, a2]
+        #r2 = R2[a1, a2]
+
+        # Q updates
+        #Q1[a1] += learning_rate * (r1 - Q1[a1])
+        #Q2[a2] += learning_rate * (r2 - Q2[a2])
+        expected_r1 = R1 @ pi2
+        expected_r2 = R2.T @ pi1
+
+        Q1 += learning_rate * (expected_r1 - Q1)
+        Q2 += learning_rate * (expected_r2 - Q2)
+
+        # save instantaneous policies
+        if episode % save_every == 0:
+            policy_history1.append(pi1.copy())
+            policy_history2.append(pi2.copy())
+
+    return np.array(policy_history1), np.array(policy_history2)
+
+
+# ============================================================
+# BOLTZMANN Q-LEARNING
+# ============================================================
+
+def boltzmann_qlearning(
+    reward_matrices,
+    episodes=30000,
+    learning_rate=0.005,
+    temperature=1.5,
+    save_every=10,
+    seed=0
+):
+
+    R1, R2 = reward_matrices
+
+    nactions = R1.shape[0]
+
+    rng1 = np.random.default_rng(seed)
+    rng2 = np.random.default_rng(seed + 100)
+
+    #Q1 = rng1.uniform(-0.1, 0.1, nactions)
+    #Q2 = rng2.uniform(-0.1, 0.1, nactions)
+
+    Q1 = rng1.uniform(-2.0, 2.0, nactions)
+    Q2 = rng2.uniform(-2.0, 2.0, nactions)
+
+    policy_history1 = []
+    policy_history2 = []
+
+    for episode in range(episodes):
+
+        pi1 = softmax_policy(Q1, temperature)
+        pi2 = softmax_policy(Q2, temperature)
+
+        expected_r1 = R1 @ pi2
+        expected_r2 = R2.T @ pi1
+
+        Q1 += learning_rate * (expected_r1 - Q1)
+        Q2 += learning_rate * (expected_r2 - Q2)
+
+        policy_history1.append(pi1.copy())
+        policy_history2.append(pi2.copy())
+
+    return np.array(policy_history1), np.array(policy_history2)
+
+
+# ============================================================
+# LENIENT BOLTZMANN Q-LEARNING
+# ============================================================
+
+def lenient_boltzmann_qlearning(
+    reward_matrices,
+    episodes=30000,
+    learning_rate=0.005,
+    maxTemp=5.0,
+    alpha=0.1,
+    beta=2.0,
+    delta=0.9995,
+    save_every=10,
+    seed=0
+):
+
+    R1, R2 = reward_matrices
+
+    nactions = R1.shape[0]
+
+    rng = np.random.default_rng(seed)
+
+    # utilities
+    U1 = rng.uniform(-0.01, 0.01, nactions)
+    U2 = rng.uniform(-0.01, 0.01, nactions)
 
     # temperatures
     Temp1 = np.full(nactions, maxTemp)
     Temp2 = np.full(nactions, maxTemp)
 
-    # for plotting purposes
-    avg_pi1 = np.zeros(nactions)
-    avg_pi2 = np.zeros(nactions)
-    hist1, hist2 = [], []
-
-    R1, R2 = reward_matrices
+    policy_history1 = []
+    policy_history2 = []
 
     for episode in range(episodes):
-        # action selection
-        logits1 = U1 / np.maximum(Temp1, 1e-6)
-        logits1 -= np.max(logits1)    
-        W1 = np.exp(logits1)
-        W1 /= np.sum(W1)
-        a1 = rng.choice(nactions, p=W1)
 
-        logits2 = U2 / np.maximum(Temp2, 1e-6)
-        logits2 -= np.max(logits2)
-        W2 = np.exp(logits2)
-        W2 /= np.sum(W2)
-        a2 = rng.choice(nactions, p=W2)
-        
+        # policies
+        pi1 = softmax_policy(U1, np.mean(Temp1))
+        pi2 = softmax_policy(U2, np.mean(Temp2))
+
+        # actions
+        a1 = rng.choice(nactions, p=pi1)
+        a2 = rng.choice(nactions, p=pi2)
+
+        # rewards
         r1 = R1[a1, a2]
         r2 = R2[a1, a2]
 
-        #W1[episode] = (e^(U[action]/MinTemp))/(sum(e^(U[action]/MinTemp)))
-        # use probability distribution w1... Wn to select action i
-        
-        # for player 1
-        RandVal = rng.random()
-        leniency_term = 1e-2 + beta ** (-alpha * Temp1[a1])
-        if (U1[a1] <= r1) or (RandVal < leniency_term):
-            U1[a1] = learning_rate * U1[a1] + (1 - learning_rate) * r1
-        
+        # =========================
+        # LENIENT UPDATE PLAYER 1
+        # =========================
+
+        randval = rng.random()
+
+        leniency1 = np.exp(-alpha * Temp1[a1])
+
+        if (r1 >= U1[a1]) or (randval < leniency1):
+
+            # FIXED UPDATE
+            U1[a1] += learning_rate * (r1 - U1[a1])
+
         Temp1[a1] *= delta
 
-        # for player 2
-        RandVal = rng.random()
-        leniency_term = 1e-2 + beta ** (-alpha * Temp2[a2])
-        if (U2[a2] <= r2) or (RandVal < leniency_term):
-            U2[a2] = learning_rate * U2[a2] + (1 - learning_rate) * r2
-        
+        # =========================
+        # LENIENT UPDATE PLAYER 2
+        # =========================
+
+        randval = rng.random()
+
+        leniency2 = np.exp(-alpha * Temp2[a2])
+
+        if (r2 >= U2[a2]) or (randval < leniency2):
+
+            # FIXED UPDATE
+            U2[a2] += learning_rate * (r2 - U2[a2])
+
         Temp2[a2] *= delta
 
-        # histogram tracking
-        avg_pi1 += (np.eye(nactions)[a1] - avg_pi1) / (episode + 1)
-        avg_pi2 += (np.eye(nactions)[a2] - avg_pi2) / (episode + 1)
-        
-        if episode % 500 == 0:
-            hist1.append(avg_pi1.copy())
-            hist2.append(avg_pi2.copy())
+        # save policies
+        if episode % save_every == 0:
+            policy_history1.append(pi1.copy())
+            policy_history2.append(pi2.copy())
 
-    print("U1:", U1)
-    print("U2:", U2)
-
-    return np.array(hist1), np.array(hist2)
+    return np.array(policy_history1), np.array(policy_history2)
 
 
+# ============================================================
+# TRAJECTORY PLOTTING
+# ============================================================
+def plot_trajectories(
+    game_name,
+    reward_matrices,
+    algorithm="boltzmann",
+    n_seeds=30
+):
 
-def plot_trajectories(game_name, rewardMatrices, n_seeds=5):
-    plt.figure(figsize=(5, 5))
+    trajectories_x = []
+    trajectories_y = []
+
     for seed in range(n_seeds):
-        np.random.seed(seed)
-        h1, h2 = lenient_boltzmann_qlearning(rewardMatrices,seed=seed)
-        plt.plot(h1[:, 0], h2[:, 0], linewidth=1.2)
-        plt.scatter(h1[0, 0],  h2[0, 0],  color='green', s=30, zorder=5)
-        plt.scatter(h1[-1, 0], h2[-1, 0], color='red',   s=50, zorder=5)
+
+        if algorithm == "egreedy":
+
+            h1, h2 = qlearning(
+                reward_matrices,
+                episodes=50000,
+                learning_rate=0.002,
+                epsilon=0.15,
+                save_every=1,
+                seed=seed
+            )
+
+        elif algorithm == "boltzmann":
+
+            h1, h2 = boltzmann_qlearning(
+                reward_matrices,
+                episodes=50000,
+                learning_rate=0.002,
+                temperature=1.5,
+                save_every=1,
+                seed=seed
+            )
+
+        elif algorithm == "lenient":
+
+            h1, h2 = lenient_boltzmann_qlearning(
+                reward_matrices,
+                episodes=50000,
+                learning_rate=0.002,
+                maxTemp=3.0,
+                save_every=1,
+                seed=seed
+            )
+
+        # HEAVY smoothing
+        h1 = moving_average(h1, window=500)
+        h2 = moving_average(h2, window=500)
+
+        trajectories_x.append(h1[:,0])
+        trajectories_y.append(h2[:,0])
+
+    trajectories_x = np.array(trajectories_x)
+    trajectories_y = np.array(trajectories_y)
+
+    # ==========================================
+    # EMPIRICAL MEAN TRAJECTORY
+    # ==========================================
+
+    mean_x = np.mean(trajectories_x, axis=0)
+    mean_y = np.mean(trajectories_y, axis=0)
+
+    # ==========================================
+    # PLOT
+    # ==========================================
+
+    plt.figure(figsize=(6,6))
+
+    # light individual traces
+    for i in range(n_seeds):
+
+        plt.plot(
+            trajectories_x[i],
+            trajectories_y[i],
+            alpha=0.15,
+            linewidth=1
+        )
+
+    # main empirical trajectory
+    plt.plot(
+        mean_x,
+        mean_y,
+        linewidth=4
+    )
+
+    # start/end markers
+    plt.scatter(
+        mean_x[0],
+        mean_y[0],
+        color='green',
+        s=80,
+        zorder=5
+    )
+
+    plt.scatter(
+        mean_x[-1],
+        mean_y[-1],
+        color='red',
+        s=80,
+        zorder=5
+    )
 
     plt.xlabel("P(Player 1 plays action 0)")
     plt.ylabel("P(Player 2 plays action 0)")
-    plt.title(f"ε-greedy independent: {game_name}")
-    plt.xlim(0, 1); plt.ylim(0, 1)
-    plt.grid(True, alpha=0.3)
+
+    plt.title(f"{algorithm}: {game_name}")
+
+    plt.xlim(0,1)
+    plt.ylim(0,1)
+
+    plt.grid(alpha=0.3)
+
     plt.tight_layout()
     plt.show()
 
 
+# ============================================================
+# RUN ALL 2x2 GAMES
+# ============================================================
+
 for name, reward_matrices in games.items():
+
     if reward_matrices[0].shape[0] == 2:
-        plot_trajectories(name, reward_matrices)
 
-#boltzmann_qlearning(games.get("prisoners_dilemma"))
+        plot_trajectories(
+            name,
+            reward_matrices,
+            algorithm="egreedy",
+            n_seeds=8
+        )
 
+        plot_trajectories(
+            name,
+            reward_matrices,
+            algorithm="boltzmann",
+            n_seeds=8
+        )
 
-
+        plot_trajectories(
+            name,
+            reward_matrices,
+            algorithm="lenient",
+            n_seeds=8
+        )
