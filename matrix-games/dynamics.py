@@ -99,6 +99,7 @@ def replicator_vector_field_lenient_boltzmann(R1, R2, grid=21, tau=0.05, k=2):
             V[i, j] = pi2[0] * (1.0 - pi2[0]) * (softmax_2[0] - pi2[0])
             
     return X, Y, U, V
+
 def replicator_vector_field_lenient_boltzmann_3(R1, R2, grid=15, tau=0.3, k=5):
     vals = np.linspace(0.01, 0.98, grid)
     points = []
