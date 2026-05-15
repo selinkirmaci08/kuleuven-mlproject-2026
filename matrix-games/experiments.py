@@ -65,6 +65,7 @@ def experiment_staghunt_epsilongreedy():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/stag_hunt_epsilongreedy.png")
 
 
 def experiment_subsidy_game_epsilongreedy():
@@ -119,6 +120,7 @@ def experiment_subsidy_game_epsilongreedy():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/subsidy_game_epsilongreedy.png")
 
 
 def experiment_prisoners_dilemma_epsilongreedy():
@@ -173,6 +175,7 @@ def experiment_prisoners_dilemma_epsilongreedy():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/prisoners_dilemma_epsilongreedy.png")
 
 
 def experiment_rps_epsilongreedy():
@@ -227,6 +230,7 @@ def experiment_rps_epsilongreedy():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/rps_epsilongreedy.png")
 
 
 def experiment_rps_boltzmann():
@@ -250,7 +254,7 @@ def experiment_rps_boltzmann():
     fig, axes = plt.subplots(1, 2, figsize=(14, 7))
 
     # Vector field — same tau as learner so arrows match trajectories
-    vf_results1, vf_results2 = replicator_vector_field_boltzmann_3(R1, R2, grid=20, tau=0.05)
+    vf_results1, vf_results2 = replicator_vector_field_boltzmann_3(R1, R2, grid=28, tau=0.05)
 
     for agent_idx, ax in enumerate(axes):
         vf = vf_results1 if agent_idx == 0 else vf_results2
@@ -295,6 +299,7 @@ def experiment_rps_boltzmann():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/rps_boltzmann.png")
 
 
 def experiment_staghunt_boltzmann():
@@ -356,6 +361,7 @@ def experiment_staghunt_boltzmann():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/stag_hunt_boltzmann.png")
 
 def experiment_subsidy_game_boltzmann():
 
@@ -412,6 +418,7 @@ def experiment_subsidy_game_boltzmann():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/subsidy_game_boltzmann.png")
 
 
 def experiment_prisoners_dilemma_boltzmann():
@@ -467,6 +474,7 @@ def experiment_prisoners_dilemma_boltzmann():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/prisoners_dilemma_boltzmann.png")
 
 def experiment_stag_hunt_lenient_boltzmann():
     game = GAMES["stag_hunt"]
@@ -530,6 +538,7 @@ def experiment_stag_hunt_lenient_boltzmann():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/stag_hunt_lenient_boltzmann.png")
 
 
 def experiment_subsidy_game_lenient_boltzmann():
@@ -585,6 +594,7 @@ def experiment_subsidy_game_lenient_boltzmann():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/subsidy_game_lenient_boltzmann.png")
 
 
 def experiment_prisoners_dilemma_lenient_boltzmann():
@@ -640,6 +650,7 @@ def experiment_prisoners_dilemma_lenient_boltzmann():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/prisoners_dilemma_lenient_boltzmann.png")
 
 def experiment_biased_rps_lenient_boltzmann():
     R1, R2 = GAMES["biased_RPS"]
@@ -663,10 +674,10 @@ def experiment_biased_rps_lenient_boltzmann():
     colors = plt.cm.tab10.colors
     _, axes = plt.subplots(1, 2, figsize=(14, 7))
 
-    nash = np.array([0.625, 0.3125, 0.0625]) 
+    nash = np.array([0.625, 0.3125, 0.0625])
 
     vf_results1, vf_results2 = replicator_vector_field_lenient_boltzmann_3(
-        R1, R2, grid=20, tau=0.3, k=5
+        R1, R2, grid=28, tau=0.3, k=5
     )
 
     for agent_idx, ax in enumerate(axes):
@@ -711,3 +722,4 @@ def experiment_biased_rps_lenient_boltzmann():
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("figures/biased_rps_lenient_boltzmann.png")
