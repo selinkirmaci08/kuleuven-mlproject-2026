@@ -101,9 +101,9 @@ def evaluate(
                 episode_lengths.append(step_count)
                 break
 
-            if step_count > 2000:
-                episode_lengths.append(step_count)
-                break
+            #if step_count > 2000:
+             #   episode_lengths.append(step_count)
+              #  break
 
             action = predict_function(obs, agent)
 
