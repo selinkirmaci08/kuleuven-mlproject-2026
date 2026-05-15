@@ -1,15 +1,16 @@
 import numpy as np
 from policies import epsilon_greedy_policy, softmax, softmax3
 
+
 def epsilon_greedy_trajectory(
-    R1,
-    R2,
-    T=20000,
-    alpha=0.01,
-    epsilon=0.1,
-    seed=0,
-    center=(0.45, 0.45),
-    noise_scale=0.02
+        R1,
+        R2,
+        T=20000,
+        alpha=0.01,
+        epsilon=0.1,
+        seed=0,
+        center=(0.45, 0.45),
+        noise_scale=0.02
 ):
     n_actions = R1.shape[0]
     rng = np.random.default_rng(seed)
@@ -23,7 +24,7 @@ def epsilon_greedy_trajectory(
     x0 = x0 / np.sum(x0)
     low = epsilon / n_actions
 
-    x0_clipped = np.clip( x0,low + 1e-8, 1.0)
+    x0_clipped = np.clip(x0, low + 1e-8, 1.0)
 
     p_pure = (x0_clipped - low) / (1.0 - epsilon)
 
@@ -39,7 +40,7 @@ def epsilon_greedy_trajectory(
     # initialize Q's from logits
     low = epsilon / 2.0
     high = 1.0 - low
-    
+
     x0_clipped = np.clip(x0, low + 1e-5, high - 1e-5)
     y0_clipped = np.clip(y0, low + 1e-5, high - 1e-5)
 
@@ -47,7 +48,7 @@ def epsilon_greedy_trajectory(
     # Bajo epsilon-greedy: p = (1 - epsilon) * p_pura + (epsilon / 2)
     p1_pure = (x0_clipped - low) / (1.0 - epsilon)
     p2_pure = (y0_clipped - low) / (1.0 - epsilon)
-    
+
     # Evitar divisiones por cero o logaritmos de números negativos
     p1_pure = np.clip(p1_pure, 1e-5, 1.0 - 1e-5)
     p2_pure = np.clip(p2_pure, 1e-5, 1.0 - 1e-5)
@@ -71,30 +72,30 @@ def epsilon_greedy_trajectory(
         r2 = R2[a1, a2]
 
         alpha_t = alpha / (1.0 + 0.00005 * t)
-        
+
         Q1[a1] += alpha_t * (r1 - Q1[a1])
         Q2[a2] += alpha_t * (r2 - Q2[a2])
 
         p1 = pi1[0]
-        p2 = pi2[0] 
-        
+        p2 = pi2[0]
+
         history.append([p1, p2])
 
     return np.array(history)
 
-def epsilon_greedy_trajectory_three(
-    R1,
-    R2,
-    center1,
-    center2,
-    T=10000,
-    alpha=0.1,
-    epsilon=0.1,
-    noise_scale=0.05,
-    rng=None,
-    seed=42
-):
 
+def epsilon_greedy_trajectory_three(
+        R1,
+        R2,
+        center1,
+        center2,
+        T=10000,
+        alpha=0.1,
+        epsilon=0.1,
+        noise_scale=0.05,
+        rng=None,
+        seed=42
+):
     if rng is None:
         rng = np.random.default_rng()
 
@@ -163,34 +164,87 @@ def epsilon_greedy_trajectory_three(
 
 
 # ============================================================
+# BOLTZMANN Q-LEARNING  (3-action games, e.g. biased RPS)
+# ============================================================
+def boltzmann_trajectory_three(
+        R1,
+        R2,
+        center1,
+        center2,
+        T=100000,
+        alpha=0.001,
+        tau=0.05,
+        noise_scale=0.0,
+        rng=None,
+        seed=42,
+):
+    if rng is None:
+        rng = np.random.default_rng(seed)
+
+    rng1 = np.random.default_rng(rng.integers(1_000_000_000))
+    rng2 = np.random.default_rng(rng.integers(1_000_000_000))
+
+    n_actions_1 = len(center1)
+    n_actions_2 = len(center2)
+
+    probs1 = np.array(center1, dtype=float) + rng1.normal(0, noise_scale, n_actions_1)
+    probs2 = np.array(center2, dtype=float) + rng2.normal(0, noise_scale, n_actions_2)
+    probs1 = np.clip(probs1, 1e-6, None);
+    probs1 /= probs1.sum()
+    probs2 = np.clip(probs2, 1e-6, None);
+    probs2 /= probs2.sum()
+
+    Q1 = policy_to_Q3(probs1, tau)
+    Q2 = policy_to_Q3(probs2, tau)
+
+    history = []
+
+    for t in range(T):
+        pi1 = softmax3(Q1, tau)
+        pi2 = softmax3(Q2, tau)
+
+        history.append([pi1.copy(), pi2.copy()])
+
+        a1 = rng1.choice(n_actions_1, p=pi1)
+        a2 = rng2.choice(n_actions_2, p=pi2)
+
+        r1 = R1[a1, a2]
+        r2 = R2[a1, a2]
+
+        Q1[a1] += alpha * (r1 - Q1[a1])
+        Q2[a2] += alpha * (r2 - Q2[a2])
+
+    return np.array(history, dtype=np.float64)
+
+
+# ============================================================
 # LENIENT BOLTZMANN Q-LEARNING
 # (optimistic / asymmetric TD updates)
 # ============================================================
 def lenient_boltzmann_trajectory(
-    R1, R2,
-    T=200000,
-    alpha=0.005,
-    tau=0.3,
-    k = 10,
-    seed=42,
-    tau_init=1.0,     
-    tau_min=0.01,    
-    
-    center=(0.45, 0.45),
-    noise_scale=0.02
+        R1, R2,
+        T=200000,
+        alpha=0.005,
+        tau=0.3,
+        k=10,
+        seed=42,
+        tau_init=1.0,
+        tau_min=0.01,
+
+        center=(0.45, 0.45),
+        noise_scale=0.02
 ):
-    
-    n_actions =2
+    n_actions = 2
     rng = np.random.default_rng(seed)
 
-    #tau_init = 1.5   # Inicia con alta aleatoriedad
-    #tau_min = 0.01   # Obliga a terminar en estrategia pura (esquinas)
+    # tau_init = 1.5   # Inicia con alta aleatoriedad
+    # tau_min = 0.01   # Obliga a terminar en estrategia pura (esquinas)
 
     x0 = np.clip(center[0] + rng.normal(0, noise_scale), 0.01, 0.99)
     y0 = np.clip(center[1] + rng.normal(0, noise_scale), 0.01, 0.99)
     Q1 = policy_to_Q(x0, tau_init)
     Q2 = policy_to_Q(y0, tau_init)
-    
+
     buffers1 = [[] for _ in range(n_actions)]
     buffers2 = [[] for _ in range(n_actions)]
 
@@ -209,13 +263,13 @@ def lenient_boltzmann_trajectory(
         a1 = rng.choice(2, p=pi1)
         a2 = rng.choice(2, p=pi2)
 
-        r1 = R1[a1,a2]
-        r2 = R2[a1,a2]
+        r1 = R1[a1, a2]
+        r2 = R2[a1, a2]
 
         buffers1[a1].append(r1)
         buffers2[a2].append(r2)
 
-        #lenient update      
+        # lenient update
 
         if len(buffers1[a1]) >= k:
             target1 = max(buffers1[a1])
@@ -239,12 +293,12 @@ def lenient_boltzmann_trajectory(
 # ============================================================
 
 def policy_to_Q(p, tau):
-
-    p = np.clip(p, 1e-5, 1-1e-5)
+    p = np.clip(p, 1e-5, 1 - 1e-5)
     q0 = tau * np.log(p)
     q1 = tau * np.log(1.0 - p)
-    
+
     return np.array([q0, q1])
+
 
 def policy_to_Q3(p, tau):
     probs = np.array(p, dtype=float)
@@ -253,17 +307,17 @@ def policy_to_Q3(p, tau):
     Q = tau * np.log(probs)
     return Q - Q.mean()
 
-def boltzmann_trajectory(
-    R1,
-    R2,
-    T=20000,
-    alpha=0.01,
-    tau_init=0.05,
-    seed=0,
-    center=(0.45, 0.45),
-    noise_scale=0.02
-):
 
+def boltzmann_trajectory(
+        R1,
+        R2,
+        T=20000,
+        alpha=0.01,
+        tau_init=0.05,
+        seed=0,
+        center=(0.45, 0.45),
+        noise_scale=0.02
+):
     rng = np.random.default_rng(seed)
     tau = tau_init
     # =====================================================
@@ -290,7 +344,7 @@ def boltzmann_trajectory(
     # =====================================================
 
     for t in range(T):
-        tau =max(tau_init * (0.9999 ** t), 0.02)
+        tau = max(tau_init * (0.9999 ** t), 0.02)
         if tau < 1e-4: tau = 1e-4
 
         pi1 = softmax(Q1, tau)
@@ -300,34 +354,35 @@ def boltzmann_trajectory(
 
         a1 = rng.choice(2, p=pi1)
         a2 = rng.choice(2, p=pi2)
-        
-        r1 = R1[a1,a2]
-        r2 = R2[a1,a2]
+
+        r1 = R1[a1, a2]
+        r2 = R2[a1, a2]
 
         r1_stag = R1[0, a2]
         r1_hare = R1[1, a2]
-        
+
         r2_stag = R2[a1, 0]
         r2_hare = R2[a1, 1]
 
         Q1[0] += alpha * (r1_stag - Q1[0])
         Q1[1] += alpha * (r1_hare - Q1[1])
-        
+
         Q2[0] += alpha * (r2_stag - Q2[0])
         Q2[1] += alpha * (r2_hare - Q2[1])
 
     return np.array(history)
 
+
 def lenient_boltzmann_trajectory_3(
-    R1, R2,
-    T=200000,
-    alpha=0.005,
-    k=10,
-    seed=42,
-    tau_init=1.0,
-    tau_min=0.01,
-    center=(1/3, 1/3, 1/3),   # initial distribution over R, P, S
-    noise_scale=0.02
+        R1, R2,
+        T=200000,
+        alpha=0.005,
+        k=10,
+        seed=42,
+        tau_init=1.0,
+        tau_min=0.01,
+        center=(1 / 3, 1 / 3, 1 / 3),  # initial distribution over R, P, S
+        noise_scale=0.02
 ):
     n_actions = 3
     rng = np.random.default_rng(seed)
@@ -347,7 +402,7 @@ def lenient_boltzmann_trajectory_3(
     tau = tau_init
     tau_decay = (tau_min / tau_init) ** (1.0 / T)
 
-    history = []   # stores (pi1[0], pi1[1], pi2[0], pi2[1]) — rock & paper probs
+    history = []  # stores (pi1[0], pi1[1], pi2[0], pi2[1]) — rock & paper probs
 
     for t in range(T):
         pi1 = softmax3(Q1, tau)
@@ -378,4 +433,4 @@ def lenient_boltzmann_trajectory_3(
 
         tau = max(tau_min, tau * tau_decay)
 
-    return np.array(history)   # shape: (T, 2, 3)
+    return np.array(history)  # shape: (T, 2, 3)

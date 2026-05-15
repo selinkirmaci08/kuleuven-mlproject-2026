@@ -1,8 +1,8 @@
 #experimetns.py
 
-from plotting import add_vector_field, add_trajectory, finalize_phase_plot, add_trajectory_simplex, finalize_simplex_plot
+from plotting import add_vector_field, add_trajectory, finalize_phase_plot, add_trajectory_simplex, finalize_simplex_plot, barycentric_to_cartesian
 from learners import *
-from dynamics import replicator_vector_field_boltzmann, replicator_vector_field_lenient_boltzmann, replicator_vector_field_lenient_boltzmann_3, add_vector_field_simplex
+from dynamics import replicator_vector_field_boltzmann, replicator_vector_field_lenient_boltzmann, replicator_vector_field_lenient_boltzmann_3, replicator_vector_field_boltzmann_3, add_vector_field_simplex
 
 from games import GAMES
 import numpy as np
@@ -32,14 +32,14 @@ def experiment_staghunt_epsilongreedy():
     colors = plt.cm.tab10.colors
     _, ax = plt.subplots(figsize=(7, 7))
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
 
         traj = epsilon_greedy_trajectory(
             R1, R2,
             T=100000,
             alpha=0.05,
-            epsilon=0.15,   
+            epsilon=0.15,
             seed=seed,
             center=(cx, cy),
             noise_scale=0.0
@@ -87,14 +87,14 @@ def experiment_subsidy_game_epsilongreedy():
     colors = plt.cm.tab10.colors
     _, ax = plt.subplots(figsize=(7, 7))
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
 
         traj = epsilon_greedy_trajectory(
             R1, R2,
             T=100000,
             alpha=0.05,
-            epsilon=0.15,   
+            epsilon=0.15,
             seed=seed,
             center=(cx, cy),
             noise_scale=0.0
@@ -141,14 +141,14 @@ def experiment_prisoners_dilemma_epsilongreedy():
     colors = plt.cm.tab10.colors
     _, ax = plt.subplots(figsize=(7, 7))
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
 
         traj = epsilon_greedy_trajectory(
             R1, R2,
             T=100000,
             alpha=0.05,
-            epsilon=0.15,   
+            epsilon=0.15,
             seed=seed,
             center=(cx, cy),
             noise_scale=0.0
@@ -184,14 +184,14 @@ def experiment_rps_epsilongreedy():
         (np.array([0.6, 0.3, 0.1]), np.array([0.5, 0.4, 0.1])),
         (np.array([0.1, 0.7, 0.2]), np.array([0.2, 0.6, 0.2])),
         (np.array([0.1, 0.2, 0.7]), np.array([0.2, 0.1, 0.7])),
-        (np.array([1/3, 1/3, 1/3]), np.array([1/3, 1/3, 1/3])),  
-        (np.array([0.5, 0.4, 0.1]), np.array([0.1, 0.5, 0.4])),  
+        (np.array([1/3, 1/3, 1/3]), np.array([1/3, 1/3, 1/3])),
+        (np.array([0.5, 0.4, 0.1]), np.array([0.1, 0.5, 0.4])),
         (np.array([0.2, 0.5, 0.3]), np.array([0.3, 0.2, 0.5])),
     ]
     colors = plt.cm.tab10.colors
     fig, axes = plt.subplots(1, 2, figsize=(14, 7))
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
         rng = np.random.default_rng(seed)
         traj = epsilon_greedy_trajectory_three(
@@ -228,6 +228,75 @@ def experiment_rps_epsilongreedy():
     plt.tight_layout()
     plt.show()
 
+
+def experiment_rps_boltzmann():
+    R1, R2 = GAMES["biased_RPS"]
+
+    raw_starts = [
+        (0.90, 0.05, 0.05),
+        (0.05, 0.90, 0.05),
+        (0.05, 0.05, 0.90),
+        (0.50, 0.25, 0.25),
+        (0.25, 0.50, 0.25),
+        (0.25, 0.25, 0.50),
+        (1/3,  1/3,  1/3 ),
+        (0.60, 0.30, 0.10),
+        (0.10, 0.60, 0.30),
+        (0.30, 0.10, 0.60),
+    ]
+    starts = [(np.array(s), np.array(s)) for s in raw_starts]
+
+    colors = plt.cm.tab10.colors
+    fig, axes = plt.subplots(1, 2, figsize=(14, 7))
+
+    # Vector field — same tau as learner so arrows match trajectories
+    vf_results1, vf_results2 = replicator_vector_field_boltzmann_3(R1, R2, grid=20, tau=0.05)
+
+    for agent_idx, ax in enumerate(axes):
+        vf = vf_results1 if agent_idx == 0 else vf_results2
+        add_vector_field_simplex(ax, vf, normalize=True, scale=0.035, color='gray', alpha=0.5)
+
+    # Learning trajectories
+    for seed, (cx, cy) in enumerate(starts):
+        rng = np.random.default_rng(seed)
+        traj = boltzmann_trajectory_three(
+            R1, R2,
+            center1=cx,
+            center2=cy,
+            T=100000,
+            alpha=0.001,
+            tau=0.05,
+            noise_scale=0.0,
+            rng=rng,
+            seed=seed,
+        )
+
+        for agent_idx, ax in enumerate(axes):
+            add_trajectory_simplex(
+                ax, traj,
+                color=colors[seed % len(colors)],
+                stride=100, linewidth=1.5, alpha=0.85,
+                agent=agent_idx,
+            )
+
+    nash = np.array([0.625, 0.3125, 0.0625])
+    nx, ny = barycentric_to_cartesian(nash[None, :])
+
+    for ax, title in zip(axes, ["Agent 1", "Agent 2"]):
+        finalize_simplex_plot(ax, title=f"Agent {axes.tolist().index(ax) + 1} - BiasedRPS (boltzmann)")
+        ax.scatter(nx, ny, color='blue', s=150, marker='*', zorder=10, label='Nash EQ')
+
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', markerfacecolor='green', markersize=10, label='Start'),
+        Line2D([0], [0], marker='o', color='blue', markersize=10, linewidth=2, label='End'),
+        Line2D([0], [0], marker='*', color='blue', markersize=12, linewidth=0, label='Nash EQ'),
+    ]
+    axes[0].legend(handles=legend_elements, loc='upper left', fontsize=10)
+
+    plt.tight_layout()
+    plt.show()
+
+
 def experiment_staghunt_boltzmann():
     game = GAMES["stag_hunt"]
     R1 = game["R1"]
@@ -253,16 +322,16 @@ def experiment_staghunt_boltzmann():
     min_payoff = min(np.min(R1), np.min(R2))
     payoff_range = max_payoff - min_payoff if max_payoff != min_payoff else 1.0
 
-    tau_adapted = 1.5 * payoff_range 
+    tau_adapted = 1.5 * payoff_range
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
 
         traj = boltzmann_trajectory(
             R1, R2,
             T=50000,
             alpha=0.001,
-            tau_init=0.05,
+            tau_init=0.3,
             seed=seed,
             center=(cx, cy),
             noise_scale=0.0
@@ -310,14 +379,14 @@ def experiment_subsidy_game_boltzmann():
     add_vector_field(ax, X, Y, U, V, normalize=True, color='gray', alpha=0.4, scale = 30, width = 0.003)
 
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
 
         traj = boltzmann_trajectory(
             R1, R2,
             T=50000,
             alpha=0.0001,
-            tau_init=0.05,
+            tau_init=0.3,
             seed=seed,
             center=(cx, cy),
             noise_scale=0.0
@@ -366,14 +435,14 @@ def experiment_prisoners_dilemma_boltzmann():
 
     add_vector_field(ax, X, Y, U, V, normalize=True, color='gray', alpha=0.4, scale = 30, width = 0.003)
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
 
         traj = boltzmann_trajectory(
             R1, R2,
             T=50000,
             alpha=0.0001,
-            tau_init=0.05,
+            tau_init=0.3,
             seed=seed,
             center=(cx, cy),
             noise_scale=0.0
@@ -392,7 +461,7 @@ def experiment_prisoners_dilemma_boltzmann():
     legend_elements = [
         Line2D([0], [0],marker='o', color='w', markerfacecolor='green', markersize=10,label='Start'),
         Line2D([0], [0], marker='o', color='blue', markersize=10, linewidth=2, label='End'),
-    ] 
+    ]
 
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
@@ -428,7 +497,7 @@ def experiment_stag_hunt_lenient_boltzmann():
 
     add_vector_field(ax, X, Y, U, V, normalize=True, color='gray', alpha=0.4, scale = 30, width = 0.003)
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
         traj = lenient_boltzmann_trajectory(
             R1, R2,
@@ -483,7 +552,7 @@ def experiment_subsidy_game_lenient_boltzmann():
 
     add_vector_field(ax, X, Y, U, V, normalize=True, color='gray', alpha=0.4, scale = 30, width = 0.003)
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
         traj = lenient_boltzmann_trajectory(
             R1, R2,
@@ -538,7 +607,7 @@ def experiment_prisoners_dilemma_lenient_boltzmann():
 
     add_vector_field(ax, X, Y, U, V, normalize=True, color='gray', alpha=0.4, scale = 30, width = 0.003)
 
-    # trajectories  
+    # trajectories
     for seed, (cx, cy) in enumerate(starts):
         traj = lenient_boltzmann_trajectory(
             R1, R2,
