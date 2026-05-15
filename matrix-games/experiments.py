@@ -594,20 +594,22 @@ def experiment_biased_rps_lenient_boltzmann():
     colors = plt.cm.tab10.colors
     _, axes = plt.subplots(1, 2, figsize=(14, 7))
 
-    vf_results = replicator_vector_field_lenient_boltzmann_3(
-        R1, R2, grid=12, tau=0.3, k=5
+    nash = np.array([0.625, 0.3125, 0.0625]) 
+
+    vf_results1, vf_results2 = replicator_vector_field_lenient_boltzmann_3(
+        R1, R2, grid=20, tau=0.3, k=5
     )
 
     for agent_idx, ax in enumerate(axes):
-        add_vector_field_simplex(ax, vf_results, agent=agent_idx,
-                                  normalize=True, scale=0.04,
-                                  color='gray', alpha=0.5)
+        vf = vf_results1 if agent_idx == 0 else vf_results2
+        add_vector_field_simplex(ax, vf, normalize=True, scale=0.035,
+                              color='gray', alpha=0.5)
 
         for seed, center in enumerate(starts):
             traj = lenient_boltzmann_trajectory_3(
                 R1, R2,
                 T=200_000,
-                alpha=0.01,
+                alpha=0.005,
                 k=5,
                 seed=seed,
                 tau_init=0.3,

@@ -1,8 +1,4 @@
 
-# ============================================================
-# REPLICATOR VECTOR FIELD
-# ============================================================
-
 import numpy as np
 from open_spiel.python.egt import dynamics
 from plotting import barycentric_to_cartesian
@@ -38,7 +34,6 @@ def replicator_vector_field_boltzmann(R1, R2, grid =20):
 
 
 def replicator_vector_field_lenient_boltzmann(R1, R2, grid=21, tau=0.05, k=2):
-    # Usar un grid impar (ej. 21) asegura que el centro exacto (0.5, 0.5) sea evaluado
     x_range = np.linspace(0.01, 0.99, grid)  
     y_range = np.linspace(0.01, 0.99, grid)
     
@@ -104,41 +99,33 @@ def replicator_vector_field_lenient_boltzmann(R1, R2, grid=21, tau=0.05, k=2):
             V[i, j] = pi2[0] * (1.0 - pi2[0]) * (softmax_2[0] - pi2[0])
             
     return X, Y, U, V
-def replicator_vector_field_lenient_boltzmann_3(R1, R2, grid=15, tau=0.3, k=5,
-                                                  opponent_policy=None):
-    """
-    Vector field on the simplex for agent i, with opponent fixed at
-    `opponent_policy` (defaults to uniform / Nash for RPS).
-    """
-    if opponent_policy is None:
-        opponent_policy = np.array([1/3, 1/3, 1/3])  # Nash for standard RPS
-
-    vals = np.linspace(0.05, 0.95, grid)
+def replicator_vector_field_lenient_boltzmann_3(R1, R2, grid=15, tau=0.3, k=5):
+    vals = np.linspace(0.01, 0.98, grid)
     points = []
     for p0 in vals:
         for p1 in vals:
             p2 = 1.0 - p0 - p1
-            if p2 > 0.05:
-                points.append((p0, p1, p2))
+        if 0.01 <= p2 <= 0.99:  # valid simplex point
+            points.append((p0, p1, p2))
 
     def lenient_payoffs(R, pi_self, pi_opp, axis):
-        """
-        axis=0: agent is row player (R indexed as R[a_self, a_opp])
-        axis=1: agent is col player (R indexed as R[a_opp, a_self])
-        """
         n = len(pi_self)
         lenient_r = np.zeros(n)
         for a in range(n):
-            if axis == 0:
-                payoffs = R[a, :]          # vs each opponent action
-            else:
-                payoffs = R[:, a]
-            r_max = payoffs.max()
-            r_min = payoffs.min()
-            a_min = payoffs.argmin()
-            p_min = pi_opp[a_min]
-            prob_all_min = p_min ** k
-            lenient_r[a] = (1 - prob_all_min) * r_max + prob_all_min * r_min
+            payoffs = R[a, :] if axis == 0 else R[:, a]
+            
+            worst_idx = np.argmin(payoffs)  # single worst opponent action
+            best_idx  = np.argmax(payoffs)  # single best
+            
+            r_min = payoffs[worst_idx]
+            r_max = payoffs[best_idx]
+            
+            p_min = pi_opp[worst_idx]       # probability of that single worst action
+            
+            prob_all_min  = p_min ** k
+            prob_any_better = 1.0 - prob_all_min
+            
+            lenient_r[a] = prob_any_better * r_max + prob_all_min * r_min
         return lenient_r
 
     def boltzmann(r):
@@ -150,14 +137,14 @@ def replicator_vector_field_lenient_boltzmann_3(R1, R2, grid=15, tau=0.3, k=5,
     for (p0, p1, p2) in points:
         pi = np.array([p0, p1, p2])
 
-        # Agent 1: own policy = pi, opponent fixed at opponent_policy
-        lr1 = lenient_payoffs(R1, pi, opponent_policy, axis=0)
+        # --- Agent 1: self=pi, opponent=pi (symmetric point, like x,y in 2-action) ---
+        lr1 = lenient_payoffs(R1, pi, pi, axis=0)  # opponent is pi2 = pi (symmetric)
         sigma1 = boltzmann(lr1)
         d1 = pi * (sigma1 - pi)
         results1.append((pi.copy(), d1))
 
-        # Agent 2: own policy = pi, opponent fixed at opponent_policy
-        lr2 = lenient_payoffs(R2, pi, opponent_policy, axis=1)
+        # --- Agent 2: self=pi, opponent=pi ---
+        lr2 = lenient_payoffs(R2, pi, pi, axis=1)
         sigma2 = boltzmann(lr2)
         d2 = pi * (sigma2 - pi)
         results2.append((pi.copy(), d2))
