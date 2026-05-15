@@ -66,6 +66,7 @@ You can (visually) test your installation by running:
 
 ```
 python3 evaluation.py -l random_agent.py -s --distortion=5
+python3 evaluation.py -l submission.py --distortion=0 --episodes=1
 ```
 
 

@@ -1,84 +1,133 @@
+SANITY CHECK] Observation after 50 steps (40 floats):
+  archer_0  x=0.329  y=0.973  dir_x=0.329  dir_y=0.030
+  zombie_0 (rel to archer_0)  align=0.930  cross=0.244  dist=0.654  dist_to_bottom=0.064
+  zombie_1 (rel to archer_0)  align=0.787  cross=0.091  dist=0.819  dist_to_bottom=0.023
+  zombie_2 (rel to archer_0)  align=0.000  cross=0.000  dist=0.000  dist_to_bottom=0.000
+  zombie_3 (rel to archer_0)  align=0.000  cross=0.000  dist=0.000  dist_to_bottom=0.000
+  archer_1  x=0.360  y=0.881  dir_x=0.329  dir_y=0.030
+  [raw] zombie count: 1
+
+============================================================
+  Vector policy training — KAZ
+  Observation: 40 floats (align + cross + dist + dist_to_bottom)
+  Zombies sorted by dist_to_bottom descending (most dangerous first)
+  Agents: ['archer_0', 'archer_1']
+============================================================
+2026-05-13 16:21:34,497 WARNING sgd.py:55 -- DeprecationWarning: `_get_slice_indices` has been deprecated. This will raise an error in the future!
 iter 000 | archer_0:   1.500  |  archer_1:   1.658  |  avg:   1.579
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 001 | archer_0:   1.513  |  archer_1:   1.962  |  avg:   1.737
 iter 002 | archer_0:   1.710  |  archer_1:   1.940  |  avg:   1.825
 iter 003 | archer_0:   2.020  |  archer_1:   1.840  |  avg:   1.930
 iter 004 | archer_0:   2.670  |  archer_1:   1.580  |  avg:   2.125
 iter 005 | archer_0:   3.240  |  archer_1:   1.680  |  avg:   2.460
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 006 | archer_0:   3.790  |  archer_1:   2.040  |  avg:   2.915
 iter 007 | archer_0:   4.360  |  archer_1:   2.400  |  avg:   3.380
 iter 008 | archer_0:   4.990  |  archer_1:   2.940  |  avg:   3.965
 iter 009 | archer_0:   5.430  |  archer_1:   3.660  |  avg:   4.545
 iter 010 | archer_0:   6.090  |  archer_1:   4.490  |  avg:   5.290
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 011 | archer_0:   6.120  |  archer_1:   5.010  |  avg:   5.565
 iter 012 | archer_0:   6.410  |  archer_1:   5.230  |  avg:   5.820
 iter 013 | archer_0:   7.480  |  archer_1:   6.160  |  avg:   6.820
 iter 014 | archer_0:   7.640  |  archer_1:   6.590  |  avg:   7.115
 iter 015 | archer_0:   7.630  |  archer_1:   6.530  |  avg:   7.080
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 016 | archer_0:   8.170  |  archer_1:   6.930  |  avg:   7.550
 iter 017 | archer_0:   8.840  |  archer_1:   7.840  |  avg:   8.340
 iter 018 | archer_0:   9.680  |  archer_1:   8.490  |  avg:   9.085
 iter 019 | archer_0:   9.690  |  archer_1:   8.700  |  avg:   9.195
 iter 020 | archer_0:  10.450  |  archer_1:   9.250  |  avg:   9.850
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 021 | archer_0:  10.870  |  archer_1:   9.570  |  avg:  10.220
 iter 022 | archer_0:  11.590  |  archer_1:  10.260  |  avg:  10.925
 iter 023 | archer_0:  12.700  |  archer_1:  11.230  |  avg:  11.965
 iter 024 | archer_0:  13.070  |  archer_1:  11.580  |  avg:  12.325
 iter 025 | archer_0:  14.880  |  archer_1:  12.650  |  avg:  13.765
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 026 | archer_0:  16.110  |  archer_1:  13.210  |  avg:  14.660
 iter 027 | archer_0:  17.590  |  archer_1:  14.380  |  avg:  15.985
 iter 028 | archer_0:  19.000  |  archer_1:  15.330  |  avg:  17.165
 iter 029 | archer_0:  19.920  |  archer_1:  15.930  |  avg:  17.925
 iter 030 | archer_0:  19.660  |  archer_1:  15.620  |  avg:  17.640
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 031 | archer_0:  19.780  |  archer_1:  15.720  |  avg:  17.750
 iter 032 | archer_0:  19.910  |  archer_1:  15.570  |  avg:  17.740
 iter 033 | archer_0:  20.870  |  archer_1:  16.130  |  avg:  18.500
 iter 034 | archer_0:  19.170  |  archer_1:  14.710  |  avg:  16.940
 iter 035 | archer_0:  20.380  |  archer_1:  15.540  |  avg:  17.960
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 036 | archer_0:  20.840  |  archer_1:  15.910  |  avg:  18.375
 iter 037 | archer_0:  21.290  |  archer_1:  16.370  |  avg:  18.830
 iter 038 | archer_0:  21.310  |  archer_1:  16.230  |  avg:  18.770
 iter 039 | archer_0:  21.810  |  archer_1:  16.640  |  avg:  19.225
 iter 040 | archer_0:  22.500  |  archer_1:  17.180  |  avg:  19.840
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 041 | archer_0:  23.510  |  archer_1:  17.590  |  avg:  20.550
 iter 042 | archer_0:  23.300  |  archer_1:  17.470  |  avg:  20.385
 iter 043 | archer_0:  24.340  |  archer_1:  18.180  |  avg:  21.260
 iter 044 | archer_0:  24.640  |  archer_1:  18.410  |  avg:  21.525
 iter 045 | archer_0:  25.550  |  archer_1:  19.320  |  avg:  22.435
+         └─  checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 046 | archer_0:  26.510  |  archer_1:  20.170  |  avg:  23.340
 iter 047 | archer_0:  27.200  |  archer_1:  20.770  |  avg:  23.985
 iter 048 | archer_0:  29.270  |  archer_1:  22.360  |  avg:  25.815
 iter 049 | archer_0:  28.100  |  archer_1:  21.950  |  avg:  25.025
 iter 050 | archer_0:  27.560  |  archer_1:  21.570  |  avg:  24.565
+         └─ NEW BEST 24.565 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 051 | archer_0:  27.400  |  archer_1:  21.270  |  avg:  24.335
 iter 052 | archer_0:  28.820  |  archer_1:  22.360  |  avg:  25.590
+         └─ NEW BEST 25.590 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 053 | archer_0:  30.330  |  archer_1:  23.490  |  avg:  26.910
+         └─ NEW BEST 26.910 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 054 | archer_0:  29.000  |  archer_1:  22.170  |  avg:  25.585
 iter 055 | archer_0:  29.710  |  archer_1:  22.630  |  avg:  26.170
 iter 056 | archer_0:  31.010  |  archer_1:  23.460  |  avg:  27.235
+         └─ NEW BEST 27.235 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 057 | archer_0:  31.420  |  archer_1:  23.880  |  avg:  27.650
+         └─ NEW BEST 27.650 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 058 | archer_0:  32.940  |  archer_1:  24.650  |  avg:  28.795
+         └─ NEW BEST 28.795 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 059 | archer_0:  35.460  |  archer_1:  26.400  |  avg:  30.930
+         └─ NEW BEST 30.930 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 060 | archer_0:  36.030  |  archer_1:  26.660  |  avg:  31.345
+         └─ NEW BEST 31.345 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 061 | archer_0:  37.880  |  archer_1:  27.860  |  avg:  32.870
+         └─ NEW BEST 32.870 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 062 | archer_0:  38.080  |  archer_1:  28.070  |  avg:  33.075
+         └─ NEW BEST 33.075 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 063 | archer_0:  39.410  |  archer_1:  29.030  |  avg:  34.220
+         └─ NEW BEST 34.220 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 064 | archer_0:  39.150  |  archer_1:  29.040  |  avg:  34.095
 iter 065 | archer_0:  39.460  |  archer_1:  29.020  |  avg:  34.240
+         └─ NEW BEST 34.240 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 066 | archer_0:  39.110  |  archer_1:  28.520  |  avg:  33.815
 iter 067 | archer_0:  40.230  |  archer_1:  29.200  |  avg:  34.715
+         └─ NEW BEST 34.715 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 068 | archer_0:  40.800  |  archer_1:  29.650  |  avg:  35.225
+         └─ NEW BEST 35.225 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 069 | archer_0:  42.100  |  archer_1:  30.390  |  avg:  36.245
+         └─ NEW BEST 36.245 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 070 | archer_0:  43.350  |  archer_1:  31.590  |  avg:  37.470
+         └─ NEW BEST 37.470 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 071 | archer_0:  44.230  |  archer_1:  32.040  |  avg:  38.135
+         └─ NEW BEST 38.135 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 072 | archer_0:  44.690  |  archer_1:  32.040  |  avg:  38.365
+         └─ NEW BEST 38.365 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 073 | archer_0:  43.680  |  archer_1:  31.310  |  avg:  37.495
 iter 074 | archer_0:  43.880  |  archer_1:  31.640  |  avg:  37.760
 iter 075 | archer_0:  44.530  |  archer_1:  32.260  |  avg:  38.395
+         └─ NEW BEST 38.395 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 076 | archer_0:  44.680  |  archer_1:  32.750  |  avg:  38.715
+         └─ NEW BEST 38.715 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 077 | archer_0:  44.300  |  archer_1:  32.810  |  avg:  38.555
 iter 078 | archer_0:  45.260  |  archer_1:  34.120  |  avg:  39.690
+         └─ NEW BEST 39.690 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 079 | archer_0:  46.050  |  archer_1:  34.880  |  avg:  40.465
+         └─ NEW BEST 40.465 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 080 | archer_0:  46.110  |  archer_1:  35.610  |  avg:  40.860
+         └─ NEW BEST 40.860 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 081 | archer_0:  45.200  |  archer_1:  35.230  |  avg:  40.215
 iter 082 | archer_0:  43.360  |  archer_1:  34.530  |  avg:  38.945
 iter 083 | archer_0:  43.630  |  archer_1:  35.290  |  avg:  39.460
@@ -103,21 +152,35 @@ iter 101 | archer_0:  40.410  |  archer_1:  38.600  |  avg:  39.505
 iter 102 | archer_0:  40.610  |  archer_1:  39.100  |  avg:  39.855
 iter 103 | archer_0:  41.080  |  archer_1:  39.830  |  avg:  40.455
 iter 104 | archer_0:  41.950  |  archer_1:  41.020  |  avg:  41.485
+         └─ NEW BEST 41.485 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 105 | archer_0:  42.920  |  archer_1:  41.500  |  avg:  42.210
+         └─ NEW BEST 42.210 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 106 | archer_0:  42.790  |  archer_1:  41.570  |  avg:  42.180
 iter 107 | archer_0:  43.440  |  archer_1:  42.450  |  avg:  42.945
+         └─ NEW BEST 42.945 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 108 | archer_0:  44.190  |  archer_1:  43.290  |  avg:  43.740
+         └─ NEW BEST 43.740 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 109 | archer_0:  44.070  |  archer_1:  43.630  |  avg:  43.850
+         └─ NEW BEST 43.850 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 110 | archer_0:  44.400  |  archer_1:  43.960  |  avg:  44.180
+         └─ NEW BEST 44.180 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 111 | archer_0:  44.340  |  archer_1:  44.470  |  avg:  44.405
+         └─ NEW BEST 44.405 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 112 | archer_0:  44.570  |  archer_1:  44.860  |  avg:  44.715
+         └─ NEW BEST 44.715 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 113 | archer_0:  44.940  |  archer_1:  45.700  |  avg:  45.320
+         └─ NEW BEST 45.320 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 114 | archer_0:  45.810  |  archer_1:  47.030  |  avg:  46.420
+         └─ NEW BEST 46.420 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 115 | archer_0:  46.570  |  archer_1:  47.820  |  avg:  47.195
+         └─ NEW BEST 47.195 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 116 | archer_0:  46.620  |  archer_1:  48.120  |  avg:  47.370
+         └─ NEW BEST 47.370 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 117 | archer_0:  47.160  |  archer_1:  48.900  |  avg:  48.030
+         └─ NEW BEST 48.030 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 118 | archer_0:  46.910  |  archer_1:  48.990  |  avg:  47.950
 iter 119 | archer_0:  46.930  |  archer_1:  49.250  |  avg:  48.090
+         └─ NEW BEST 48.090 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 120 | archer_0:  46.720  |  archer_1:  48.830  |  avg:  47.775
 iter 121 | archer_0:  44.490  |  archer_1:  47.550  |  avg:  46.020
 iter 122 | archer_0:  43.510  |  archer_1:  47.170  |  avg:  45.340
@@ -219,9 +282,11 @@ iter 217 | archer_0:  29.600  |  archer_1:  65.040  |  avg:  47.320
 iter 218 | archer_0:  29.840  |  archer_1:  64.540  |  avg:  47.190
 iter 219 | archer_0:  29.960  |  archer_1:  65.110  |  avg:  47.535
 iter 220 | archer_0:  30.610  |  archer_1:  66.600  |  avg:  48.605
+         └─ NEW BEST 48.605 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 221 | archer_0:  29.400  |  archer_1:  65.390  |  avg:  47.395
 iter 222 | archer_0:  29.540  |  archer_1:  65.170  |  avg:  47.355
 iter 223 | archer_0:  30.080  |  archer_1:  67.240  |  avg:  48.660
+         └─ NEW BEST 48.660 — checkpoint saved → /Users/martuky/Importante/KULeuven/2025_2026/SecondSemester/MachineLearningProject/kuleuven-mlproject-2026/results_vector
 iter 224 | archer_0:  29.220  |  archer_1:  66.330  |  avg:  47.775
 iter 225 | archer_0:  29.450  |  archer_1:  66.320  |  avg:  47.885
 iter 226 | archer_0:  30.020  |  archer_1:  65.840  |  avg:  47.930
@@ -230,3 +295,4 @@ iter 228 | archer_0:  30.780  |  archer_1:  62.980  |  avg:  46.880
 iter 229 | archer_0:  30.950  |  archer_1:  64.430  |  avg:  47.690
 iter 230 | archer_0:  30.680  |  archer_1:  63.810  |  avg:  47.245
 iter 231 | archer_0:  30.730  |  archer_1:  63.790  |  avg:  47.260
+^CTraceback (most recent call last):

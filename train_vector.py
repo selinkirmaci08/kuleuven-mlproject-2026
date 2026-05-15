@@ -86,7 +86,7 @@ def training(env, checkpoint_path, max_iterations=300):
 
     # ── Sanity check ─────────────────────────────────────────────────────────
     check_env = create_environment()
-    check_env = CustomWrapper(check_env, inference_mode=False)
+    check_env = CustomWrapper(check_env, inference_mode=True)
     check_env.reset()
     for agent in check_env.agent_iter(max_iter=50):
         obs, rew, term, trunc, info = check_env.last()
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     # env here is only used to get agent list — no RewardWrapper needed
     env = create_environment()
-    env = CustomWrapper(env, inference_mode=False)
+    env = CustomWrapper(env, inference_mode=True)
     env.reset()
 
     checkpoint_path = str(Path("results_vector").resolve())
