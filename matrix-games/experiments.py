@@ -64,8 +64,8 @@ def experiment_staghunt_epsilongreedy():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/stag_hunt_epsilongreedy.png")
+    plt.show()
 
 
 def experiment_subsidy_game_epsilongreedy():
@@ -119,8 +119,8 @@ def experiment_subsidy_game_epsilongreedy():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/subsidy_game_epsilongreedy.png")
+    plt.show()
 
 
 def experiment_prisoners_dilemma_epsilongreedy():
@@ -174,8 +174,8 @@ def experiment_prisoners_dilemma_epsilongreedy():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/prisoners_dilemma_epsilongreedy.png")
+    plt.show()
 
 
 def experiment_rps_epsilongreedy():
@@ -229,8 +229,8 @@ def experiment_rps_epsilongreedy():
     axes[0].legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/rps_epsilongreedy.png")
+    plt.show()
 
 
 def experiment_rps_boltzmann():
@@ -298,8 +298,8 @@ def experiment_rps_boltzmann():
     axes[0].legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/rps_boltzmann.png")
+    plt.show()
 
 
 def experiment_staghunt_boltzmann():
@@ -360,8 +360,8 @@ def experiment_staghunt_boltzmann():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/stag_hunt_boltzmann.png")
+    plt.show()
 
 def experiment_subsidy_game_boltzmann():
 
@@ -417,8 +417,8 @@ def experiment_subsidy_game_boltzmann():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/subsidy_game_boltzmann.png")
+    plt.show()
 
 
 def experiment_prisoners_dilemma_boltzmann():
@@ -473,8 +473,8 @@ def experiment_prisoners_dilemma_boltzmann():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/prisoners_dilemma_boltzmann.png")
+    plt.show()
 
 def experiment_stag_hunt_lenient_boltzmann():
     game = GAMES["stag_hunt"]
@@ -537,8 +537,8 @@ def experiment_stag_hunt_lenient_boltzmann():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/stag_hunt_lenient_boltzmann.png")
+    plt.show()
 
 
 def experiment_subsidy_game_lenient_boltzmann():
@@ -593,8 +593,8 @@ def experiment_subsidy_game_lenient_boltzmann():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/subsidy_game_lenient_boltzmann.png")
+    plt.show()
 
 
 def experiment_prisoners_dilemma_lenient_boltzmann():
@@ -649,8 +649,8 @@ def experiment_prisoners_dilemma_lenient_boltzmann():
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/prisoners_dilemma_lenient_boltzmann.png")
+    plt.show()
 
 def experiment_biased_rps_lenient_boltzmann():
     R1, R2 = GAMES["biased_RPS"]
@@ -721,5 +721,5 @@ def experiment_biased_rps_lenient_boltzmann():
     axes[0].legend(handles=legend_elements, loc='upper right', fontsize=10)
 
     plt.tight_layout()
-    plt.show()
     plt.savefig("figures/biased_rps_lenient_boltzmann.png")
+    plt.show()
