@@ -70,10 +70,9 @@ def replicator_vector_field_lenient_boltzmann(R1, R2, grid=21, tau=0.05, k=2):
                 
                 lenient_r1[a1] = (prob_al_menos_un_max * r_max) + (prob_todos_min * r_min)
 
-            # --- Agente 2 (Sus pagos dependen de las acciones del Agente 1) ---
             for a2 in range(2):
-                r_vs_0 = R2[0, a2]  # Pago si el rival elige Acción 0
-                r_vs_1 = R2[1, a2]  # Pago si el rival elige Acción 1
+                r_vs_0 = R2[0, a2]  # payoff if rival chooses action 0
+                r_vs_1 = R2[1, a2]  # payoff if rival chooses action 1
                 
                 r_max = max(r_vs_0, r_vs_1)
                 r_min = min(r_vs_0, r_vs_1)
@@ -85,16 +84,12 @@ def replicator_vector_field_lenient_boltzmann(R1, R2, grid=21, tau=0.05, k=2):
                 
                 lenient_r2[a2] = (prob_al_menos_un_max * r_max) + (prob_todos_min * r_min)
 
-            # === DINÁMICA DE ACTUALIZACIÓN CONTINUA ===
-            # Evitar desbordamientos (overflow) restando el máximo antes de la exponencial
             exp_1 = np.exp((lenient_r1 - np.max(lenient_r1)) / tau)
             softmax_1 = exp_1 / np.sum(exp_1)
             
             exp_2 = np.exp((lenient_r2 - np.max(lenient_r2)) / tau)
             softmax_2 = exp_2 / np.sum(exp_2)
             
-            # CORRECCIÓN: Multiplicar por la probabilidad actual (Dinámica de Replicador Boltzmann)
-            # Esto estabiliza las fronteras del simplex y centra los cuatro cuadrantes
             U[i, j] = pi1[0] * (1.0 - pi1[0]) * (softmax_1[0] - pi1[0])
             V[i, j] = pi2[0] * (1.0 - pi2[0]) * (softmax_2[0] - pi2[0])
             
