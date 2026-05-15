@@ -119,22 +119,24 @@ def barycentric_to_cartesian(coords):
     y = p0 * V0[1] + p1 * V1[1] + p2 * V2[1]
     return x, y
 
-
-def add_trajectory_simplex(ax, traj, color=None, linewidth=1.5,
-                            alpha=0.85, start_marker=True,
-                            end_marker=True, stride=50, agent=0):
-    
+def add_trajectory_simplex(ax, traj, agent=0, stride=50, color='blue',
+                            linewidth=1.5, alpha=0.85, **kwargs):
+    # Stride the trajectory
     traj_strided = traj[::stride]
-    coords = traj_strided[:, agent, :]  # (T_strided, 3)
 
-    x, y = barycentric_to_cartesian(coords)
+    # Handle both (T, n_agents, 3) and (T, 3) shaped trajectories
+    if traj_strided.ndim == 3:
+        coords = traj_strided[:, agent, :]   # (T_strided, 3)
+    elif traj_strided.ndim == 2:
+        coords = traj_strided                # already (T_strided, 3)
+    else:
+        raise ValueError(f"Unexpected trajectory shape: {traj_strided.shape}")
 
-    ax.plot(x, y, color=color, linewidth=linewidth, alpha=alpha)
+    xs, ys = barycentric_to_cartesian(coords)
 
-    if start_marker:
-        ax.scatter(x[0], y[0], color='green', s=60, zorder=5)
-    if end_marker:
-        ax.scatter(x[-1], y[-1], color='blue', s=130, linewidths=2, zorder=5)
+    ax.plot(xs, ys, color=color, linewidth=linewidth, alpha=alpha, **kwargs)
+    ax.plot(xs[0], ys[0], 'o', color='green', markersize=6)   # start
+    ax.plot(xs[-1], ys[-1], 'o', color=color, markersize=6)   # end
 
 
 def finalize_simplex_plot(ax, title="", labels=("Rock", "Paper", "Scissors")):

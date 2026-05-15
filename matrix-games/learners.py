@@ -310,9 +310,6 @@ def boltzmann_trajectory(
         r2_stag = R2[a1, 0]
         r2_hare = R2[a1, 1]
 
-        # === ACTUALIZACIÓN EN TIEMPO CONTINUO ===
-        # Modificamos la ecuación para que afecte a ambos Q-values en base al resultado actual.
-        # Esto reduce la varianza y garantiza la convergencia al campo medio sin promediar por lotes.
         Q1[0] += alpha * (r1_stag - Q1[0])
         Q1[1] += alpha * (r1_hare - Q1[1])
         
@@ -357,7 +354,7 @@ def lenient_boltzmann_trajectory_3(
         pi2 = softmax3(Q2, tau)
 
         # Store first two probs; scissors = 1 - sum is recoverable
-        history.append([pi1, pi2])          # shape per step: (2, 3)
+        #history.append([pi1, pi2])          # shape per step: (2, 3)
 
         a1 = rng.choice(n_actions, p=pi1)
         a2 = rng.choice(n_actions, p=pi2)
