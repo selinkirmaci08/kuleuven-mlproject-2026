@@ -105,8 +105,8 @@ def replicator_vector_field_lenient_boltzmann_3(R1, R2, grid=15, tau=0.3, k=5):
     for p0 in vals:
         for p1 in vals:
             p2 = 1.0 - p0 - p1
-        if 0.01 <= p2 <= 0.99:  # valid simplex point
-            points.append((p0, p1, p2))
+            if 0.01 <= p2 <= 0.99:  # valid simplex point
+                points.append((p0, p1, p2))
 
     def lenient_payoffs(R, pi_self, pi_opp, axis):
         n = len(pi_self)

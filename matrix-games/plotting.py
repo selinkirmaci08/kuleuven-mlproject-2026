@@ -140,14 +140,11 @@ def add_trajectory_simplex(ax, traj, agent=0, stride=50, color='blue',
 
 
 def finalize_simplex_plot(ax, title="", labels=("Rock", "Paper", "Scissors")):
-    """
-    Dibuja el triángulo del simplex con etiquetas en los vértices.
-    """
     V = np.array([
         [0.0, 0.0],           # Rock
         [1.0, 0.0],           # Paper
         [0.5, np.sqrt(3)/2],  # Scissors
-        [0.0, 0.0]            # cierra el triángulo
+        [0.0, 0.0]            # 
     ])
 
     ax.plot(V[:, 0], V[:, 1], 'k-', linewidth=1.5)

@@ -354,7 +354,7 @@ def lenient_boltzmann_trajectory_3(
         pi2 = softmax3(Q2, tau)
 
         # Store first two probs; scissors = 1 - sum is recoverable
-        #history.append([pi1, pi2])          # shape per step: (2, 3)
+        history.append([pi1, pi2])          # shape per step: (2, 3)
 
         a1 = rng.choice(n_actions, p=pi1)
         a2 = rng.choice(n_actions, p=pi2)
