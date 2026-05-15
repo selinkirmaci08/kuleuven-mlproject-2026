@@ -54,7 +54,7 @@ NUM_ARCHERS        = 2
 SCREEN_DIAG        = (1.0**2 + 1.0**2) ** 0.5  # diagonal of normalised unit square
 
 _DIR            = os.path.dirname(os.path.abspath(__file__))
-YOLO_WEIGHTS    = os.path.join(_DIR, "runs", "detect", "train", "weights", "best.pt")
+YOLO_WEIGHTS    = os.path.join(_DIR, "runs", "detect", "train-4", "weights", "best.pt")
 CHECKPOINT_PATH = os.path.join(_DIR, "results_vector")
 
 

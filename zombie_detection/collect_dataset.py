@@ -16,11 +16,13 @@ Label format (YOLO):
   Class 0 = zombie.
 
 Usage:
-  python collect_dataset.py --episodes 100 --distortion 0 --out dataset/clean
-  python collect_dataset.py --episodes 100 --distortion 3 --out dataset/dist3
+  python collect_dataset.py --episodes 100 --distortion 0
+  python collect_dataset.py --episodes 100 --distortion 3
+  python collect_dataset.py --episodes 100 --distortion 5 --out /custom/path
 """
 
 import argparse
+import os
 import random
 from pathlib import Path
 
@@ -28,6 +30,10 @@ import numpy as np
 from PIL import Image
 
 from utils import create_environment
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+_DIR     = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(_DIR)  # go up one level from zombie_detection to project root
 
 SCREEN_W = 1280
 SCREEN_H = 720
@@ -164,17 +170,27 @@ def main():
     parser = argparse.ArgumentParser(description="Collect auto-labelled KAZ zombie dataset")
     parser.add_argument("--episodes",   type=int, default=50)
     parser.add_argument("--distortion", type=int, default=0, choices=range(6))
-    parser.add_argument("--out",        type=str, default="dataset")
+    parser.add_argument("--out",        type=str, default=None)
     parser.add_argument("--seed",       type=int, default=42)
     parser.add_argument("--max-steps",  type=int, default=900)
     parser.add_argument("--keep-empty", action="store_true",
                         help="Also save frames with no zombies (useful for hard negative mining)")
     args = parser.parse_args()
 
+    if args.out is None:
+        dist_name = "clean" if args.distortion == 0 else f"dist{args.distortion}"
+        out_dir = Path(ROOT_DIR) / "dataset" / dist_name
+    else:
+        out_dir = Path(args.out)
+        if not out_dir.is_absolute():
+            out_dir = Path(ROOT_DIR) / out_dir
+
+    print(f"Output directory: {out_dir}")
+
     collect(
         num_episodes=args.episodes,
         distortion_level=args.distortion,
-        out_dir=Path(args.out),
+        out_dir=out_dir,
         master_seed=args.seed,
         max_steps=args.max_steps,
         skip_empty=not args.keep_empty,

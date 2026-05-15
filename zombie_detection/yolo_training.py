@@ -2,6 +2,9 @@ import subprocess
 import os
 from pathlib import Path
 
+_DIR     = os.path.dirname(os.path.abspath(__file__))  # zombie_detection/
+ROOT_DIR = os.path.dirname(_DIR)                        # ml-project-2024-2025/
+
 
 class YOLOTrainer:
     """
@@ -92,15 +95,22 @@ class YOLOTrainer:
 
 # ── Quick-start ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    # Fine-tune from existing best weights instead of training from scratch.
+    # This preserves clean zombie detection while learning distorted appearances.
+    old_weights = os.path.join(ROOT_DIR, "runs", "detect", "train", "weights", "best.pt")
+
     trainer = YOLOTrainer(
-        data=r"dataset\combined\dataset.yaml",
-        model="yolo11n.pt",
-        epochs=100,
+        data=os.path.join(ROOT_DIR, "dataset", "combined", "dataset.yaml"),
+        model=old_weights,   # start from old weights, not yolo11n.pt
+        epochs=4,           # fewer epochs since we're fine-tuning
         imgsz=640,
         extra_args={
-            "batch": 8,      # lower than default to save RAM
+            "batch": 8,
             "workers": 2,
-            "patience": 20,  # stop early if no improvement for 20 epochs
+            "patience": 20,
+            "lr0": 0.001,    #lower learning rate to preserve clean detection
+            "project": os.path.join(ROOT_DIR, "runs", "detect"),
+            "name": "train", # ← YOLO auto-increments: train2, train3...
         },
     )
     trainer.train()
