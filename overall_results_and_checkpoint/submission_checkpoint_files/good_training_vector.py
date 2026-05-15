@@ -155,5 +155,5 @@ if __name__ == "__main__":
     env = CustomWrapper(env, inference_mode=False)
     env.reset()
 
-    checkpoint_path = str(Path("../results_vector").resolve())
+    checkpoint_path = str(Path("../../results_vector").resolve())
     training(env, checkpoint_path, max_iterations=500)
