@@ -1,5 +1,31 @@
 
-# ML Project February 2026: Knights Archers Zombies
+# Multi-Agent Reinforcement Learning: Matrix Games and Knights Archers Zombies
+
+Term project for the course [Machine Learning: Project](https://onderwijsaanbod.kuleuven.be/syllabi/e/H0T25AE.htm) at KU Leuven (2025-2026), by Selin Kırmacı and Marta Toca Carballo.
+
+## What we built
+
+**Learning dynamics in matrix games** ([`matrix-games/`](matrix-games))
+- Implemented epsilon-greedy, Boltzmann and lenient Boltzmann Q-learning.
+- Compared them on Stag Hunt, the Subsidy Game, Prisoner's Dilemma and Biased Rock-Paper-Scissors, and plotted learning trajectories against the replicator dynamics.
+- Showed how leniency moves Stag Hunt and the Subsidy Game towards the cooperative, Pareto optimal outcome.
+
+**Two cooperating archers in Knights Archers Zombies** ([`train_vector.py`](train_vector.py), [`submission_vector.py`](submission_vector.py))
+- Trained a shared PPO policy (Ray RLlib, 3-layer MLP) for two archers that defend against incoming zombies.
+- Designed a 40-value observation per agent: each archer sees its own state and its partner's, plus the alignment, turning direction and distance of the four most urgent zombies.
+- Added reward shaping for urgent zombies and randomly hid zombies during training, so the policy stays robust when the detector misses one.
+- The policy reached a peak average reward of 48.7. Across all six distortion levels the agent scores 47 to 49, against 2 to 6 for a random agent.
+
+**Zombie detection** ([`zombie_detection/`](zombie_detection))
+- Generated a labelled dataset of 6,757 game frames over six visual distortion levels.
+- Trained YOLO11n on clean frames first, then fine-tuned it on all distortion levels.
+- Validation results: mAP50 0.975, mAP50-95 0.902, precision 0.997, recall 0.976.
+
+---
+
+## Course template
+
+The rest of this README is the original setup guide from the course.
 
 This repository contains the code to setup the final evaluation of the course "[Machine Learning: Project](https://onderwijsaanbod.kuleuven.be/syllabi/e/H0T25AE.htm)" (KU Leuven, Faculty of Engineering, Department of Computer Science, [DTAI Section](https://dtai.cs.kuleuven.be)).
 
