@@ -11,7 +11,7 @@ Term project for the course [Machine Learning: Project](https://onderwijsaanbod.
 - Showed how leniency moves Stag Hunt and the Subsidy Game towards the cooperative, Pareto optimal outcome.
 
 **Two cooperating archers in Knights Archers Zombies** ([`train_vector.py`](train_vector.py), [`submission_vector.py`](submission_vector.py))
-- Trained a shared PPO policy (Ray RLlib, 3-layer MLP) for two archers that defend against incoming zombies.
+- Trained two archers with PPO (Ray RLlib), one policy per archer (3-layer MLP each), to defend together against incoming zombies.
 - Designed a 40-value observation per agent: each archer sees its own state and its partner's, plus the alignment, turning direction and distance of the four most urgent zombies.
 - Added reward shaping for urgent zombies and randomly hid zombies during training, so the policy stays robust when the detector misses one.
 - The policy reached a peak average reward of 48.7. Across all six distortion levels the agent scores 47 to 49, against 2 to 6 for a random agent.
